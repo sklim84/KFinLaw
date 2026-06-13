@@ -29,6 +29,20 @@
 법률 RAG의 핵심 난점: **조문은 격식 법률문어**("…하여서는 아니 된다"), **사용자는 구어 질문**
 ("예금 압류되면 어떻게 되나요?"). 임베딩이 이 격차를 못 넘으면 검색이 실패한다.
 
+**파이프라인 위치(반대편):**
+- **HyPE = 색인측(index-side)** — 청킹(B)과 임베딩(C) *사이*. "무엇을 임베딩할지"를 색인 시점에 변환.
+- **HyDE = 질의측(query-side)** — 검색(D) *직전*. "질의를 어떻게 표현할지"를 질의 시점에 변환.
+- 둘 다 "표현 변환(representation transformation)"이지만, 비용·결정성이 정반대(색인 1회 vs 질의 매번).
+
+**논문·인용 정보(관측 2026-06-13):**
+| | 출간처 | 인용(GScholar / S2) | 성숙도 |
+|---|---|---|---|
+| HyDE | "Precise Zero-Shot Dense Retrieval without Relevance Labels", Gao et al., **ACL 2023** 본회의 Long Papers(pp.1762–1777), arXiv 2212.10496 | **948 / 720** | 확립·널리 검증 |
+| HyPE | "Bridging the Question–Answer Gap in RAG: Hypothetical Prompt Embeddings", Vake et al., **IEEE Access** Vol.13(pp.129952–129961), 2025.07 | **14 / 5** | 신생(독립 재현 부족) |
+> HyPE는 인용이 적은 신생 기법이나 메커니즘이 단순·견고하고 LangChain `MultiVectorRetriever`의
+> "hypothetical questions" 등 동일 패턴이 이름 이전부터 실전 사용됨. 인용 수가 적은 만큼 **우리 골드셋으로
+> 직접 검증하는 가치가 큼**(목적1의 기법 검증에 부합).
+
 - **HyPE (Hypothetical Prompt Embeddings, 2025)** — *색인 시점*에 각 청크가 답할 수 있는
   가설 질문 N개(~5)를 LLM으로 생성·임베딩해 청크로 역매핑. 검색은 **질문↔질문** 매칭.
   - 질의 시점 추가비용 0(결정론적), 비용은 색인 1회로 이전. naive 대비 논문 보고 정밀도 ~+20pp, 재현율 ~+16pp.
