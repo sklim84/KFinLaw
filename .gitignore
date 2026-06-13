@@ -40,3 +40,9 @@ secrets*
 
 # Claude Code 로컬 상태
 .claude/
+
+# 서빙/생성 로그·산출물 (재생성 가능)
+tests/vllm/
+tests/venv/
+tests/*.log
+tools/flash_attn_stub/

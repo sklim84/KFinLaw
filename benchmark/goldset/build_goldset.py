@@ -52,7 +52,9 @@ def build_consistency(retriever_kind="bm25", k=10):
 
 
 # ---------- LLM 클라이언트 (OpenAI 호환, 의존성 없음) ----------
-def chat(base_url, model, system, user, temperature=0.0, max_retries=3):
+def chat(base_url, model, system, user, temperature=0.0, max_retries=3, reasoning_effort=None):
+    # reasoning_effort: Mistral Small 4 등 추론 모델의 공식 per-request 파라미터.
+    # 골드셋 생성엔 "none"(빠르고 결정론적) 권장. 미설정 시 미전송.
     url = base_url.rstrip("/") + "/chat/completions"
     payload = {
         "model": model,
@@ -62,6 +64,8 @@ def chat(base_url, model, system, user, temperature=0.0, max_retries=3):
         "max_tokens": 1024,
         "response_format": {"type": "json_object"},  # vLLM 가이드 JSON — 파싱 안정화
     }
+    if reasoning_effort:
+        payload["reasoning_effort"] = reasoning_effort
     def _post(pl):
         req = urllib.request.Request(url, data=json.dumps(pl).encode(),
                                      headers={"Content-Type": "application/json",
@@ -133,23 +137,26 @@ JUDGE_SYS = (
     "{\"grounded\": true/false, \"needs_context\": true/false, \"reason\": \"...\"}.")
 
 
-def gen_qa(base_url, model, qtype, context, label):
+def gen_qa(base_url, model, qtype, context, label, reasoning_effort=None):
     # temp=0: 골드셋을 완전 재현 가능하게(벤치마크 안정성). 질문 다양성은 수천 개
     # 서로 다른 조문에서 확보되므로 샘플링 온도에 의존하지 않음.
     user = (f"[질문 유형] {TYPE_HINT[qtype]}\n\n[근거 {label}]\n{context[:2500]}\n\n"
             "위 근거만으로 답할 수 있는 질문과 정답을 JSON으로 생성하라.")
-    return parse_json(chat(base_url, model, GEN_SYS, user, temperature=0.0))
+    return parse_json(chat(base_url, model, GEN_SYS, user, temperature=0.0,
+                           reasoning_effort=reasoning_effort))
 
 
-def gen_pair(base_url, model, context):
+def gen_pair(base_url, model, context, reasoning_effort=None):
     """격식체+구어체 질문 쌍 생성(공통 정답). 1회 호출로 matched pair."""
     user = f"[근거 조문]\n{context[:2500]}\n\n격식체·구어체 질문 2개와 공통 정답을 JSON으로 생성하라."
-    return parse_json(chat(base_url, model, GEN_PAIR_SYS, user, temperature=0.0))
+    return parse_json(chat(base_url, model, GEN_PAIR_SYS, user, temperature=0.0,
+                           reasoning_effort=reasoning_effort))
 
 
-def judge_qa(base_url, model, question, answer, context):
+def judge_qa(base_url, model, question, answer, context, reasoning_effort=None):
     user = f"[근거 텍스트]\n{context[:2500]}\n\n[질문] {question}\n[정답] {answer}"
-    j = parse_json(chat(base_url, model, JUDGE_SYS, user, temperature=0.0))
+    j = parse_json(chat(base_url, model, JUDGE_SYS, user, temperature=0.0,
+                        reasoning_effort=reasoning_effort))
     # grounded(정답이 근거에 존재) AND needs_context(일반상식으론 못 푸는 질문) 둘 다 참이어야 채택
     return bool(j and j.get("grounded") and j.get("needs_context"))
 
@@ -218,6 +225,9 @@ def main():
     # judge(검증기) — 생성기와 다른 계열 권장(preference leakage 회피). 미지정 시 생성기와 동일(경고).
     ap.add_argument("--judge-base-url", default=None)
     ap.add_argument("--judge-model", default=None)
+    # reasoning_effort: Mistral Small 4 등 추론모델의 공식 per-request 파라미터. 생성엔 "none" 권장.
+    ap.add_argument("--reasoning-effort", default=None, help="생성기 추론수준(예: none). Mistral 계열 필수")
+    ap.add_argument("--judge-reasoning-effort", default=None, help="judge 추론수준(예: none)")
     ap.add_argument("--per-type", type=int, default=60)
     ap.add_argument("--smoke", action="store_true")
     ap.add_argument("--no-judge", action="store_true", help="LLM judge 생략(일관성 필터만으로 검증)")
@@ -261,12 +271,13 @@ def main():
             # ---- factoid: 격식↔구어 쌍 ----
             if qtype == "factoid":
                 ctx = article_context(unit)
-                pair = gen_pair(args.base_url, args.model, ctx)
+                pair = gen_pair(args.base_url, args.model, ctx, args.reasoning_effort)
                 if not (pair and pair.get("formal") and pair.get("colloquial") and pair.get("answer")):
                     stats["gen_fail"] += 1
                     continue
                 if not args.no_judge and not judge_qa(judge_url, judge_model,
-                                                      pair["formal"], pair["answer"], ctx):
+                                                      pair["formal"], pair["answer"], ctx,
+                                                      args.judge_reasoning_effort):
                     stats["judge_drop"] += 1
                     continue
                 # 일관성: 격식체로 검사(구어체는 같은 정답 공유 → 함께 채택, 콜로퀴얼 페널티 회피)
@@ -291,12 +302,13 @@ def main():
                 gold = [base.uid, impl.uid]; lawname = base.법령명; label = "본법+시행령"
             else:  # crossref
                 ctx = article_context(unit); gold = [unit.uid]; lawname = unit.법령명; label = "조문"
-            qa = gen_qa(args.base_url, args.model, qtype, ctx, label)
+            qa = gen_qa(args.base_url, args.model, qtype, ctx, label, args.reasoning_effort)
             if not qa or not qa.get("question") or not qa.get("answer"):
                 stats["gen_fail"] += 1
                 continue
             if not args.no_judge and not judge_qa(judge_url, judge_model,
-                                                  qa["question"], qa["answer"], ctx):
+                                                  qa["question"], qa["answer"], ctx,
+                                                  args.judge_reasoning_effort):
                 stats["judge_drop"] += 1
                 continue
             if passes and not passes(qa["question"], gold):

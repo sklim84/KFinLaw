@@ -1,0 +1,43 @@
+{
+  "model": "mistralai/Mistral-Small-4-119B-2603",
+  "items": [
+    {
+      "법령": "전자금융거래법",
+      "조": "제5조(전자문서의 사용)",
+      "formal": null,
+      "colloquial": null,
+      "answer": null,
+      "crossref": null
+    },
+    {
+      "법령": "전자금융거래법",
+      "조": "제6조(접근매체의 선정과 사용 및 관리)",
+      "formal": null,
+      "colloquial": null,
+      "answer": null,
+      "crossref": null
+    },
+    {
+      "법령": "자본시장과 금융투자업에 관한 법률",
+      "조": "제9조(그 밖의 용어의 정의)",
+      "formal": null,
+      "colloquial": null,
+      "answer": null,
+      "crossref": null
+    },
+    {
+      "법령": "금융소비자 보호에 관한 법률",
+      "조": "제17조(적합성원칙)",
+      "formal": null,
+      "colloquial": null,
+      "answer": null,
+      "crossref": null
+    },
+    {
+      "법령": "자본시장과 금융투자업에 관한 법률",
+      "별표": "금융투자업자 및 그 임직원에 대한 처분 및 업무 위탁계약 취소·변경 명령",
+      "byeolpyo_q": null,
+      "answer": null
+    }
+  ]
+}
