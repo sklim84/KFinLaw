@@ -2,7 +2,8 @@
 반자동 골드셋 생성
 - 코퍼스 조문/별표에서 로컬 LLM(vLLM, OpenAI 호환)으로 Q&A 생성 → 근거 id 고정 → LLM 검증
 - 질문 유형 4종 분산: factoid(정의/요건) / crossref(교차참조) / byeolpyo(별표조회) / multihop(위임·법↔시행령)
-산출: benchmark/goldset/questions.jsonl  {id, question, answer, gold_ids, type, 법령명}
+- factoid는 격식체+구어체 쌍(register, 공통 pair_id)으로 생성 → HyPE 어휘격차 효과 짝지어 측정
+산출: questions.jsonl  {id, question, answer, gold_ids, type, register, pair_id, 법령명}
 
 사용:
   # 먼저 vLLM 기동 (예): vllm serve Qwen/Qwen2.5-72B-Instruct --port 8000
@@ -78,6 +79,15 @@ GEN_SYS = ("당신은 한국 금융 법령 전문가다. 주어진 법령 조문
            "반드시 JSON으로만 출력: {\"question\": \"...\", \"answer\": \"...\"}. "
            "질문에 조문 번호를 노출하지 말 것(검색 능력 평가용).")
 
+# 격식체↔구어체 쌍 생성: 같은 의미를 (1)법률 격식체와 (2)일상 구어체로. 정답·근거는 동일.
+# HyPE/임베딩의 '격식 조문 ↔ 구어 질문' 어휘격차 해소 효과를 짝지어(paired) 측정하기 위함.
+GEN_PAIR_SYS = (
+    "당신은 한국 금융 법령 전문가다. 주어진 조문만을 근거로, 같은 사실을 묻는 질문 2개를 만든다: "
+    "(1) formal: 법률 격식체 질문, (2) colloquial: 같은 의미를 일반인이 일상적으로 묻는 구어체 질문"
+    "(예: '~하면 어떻게 되나요?', '~해도 되나요?'). 정답은 둘에 공통. "
+    "조문 번호는 노출하지 말 것. JSON으로만: "
+    "{\"formal\": \"...\", \"colloquial\": \"...\", \"answer\": \"...\"}.")
+
 TYPE_HINT = {
     "factoid": "정의·요건·기준 등 사실 관계를 묻는 질문.",
     "crossref": f"이 조문이 인용하는 다른 법령/제도와의 관계를 묻는 질문.",
@@ -100,6 +110,12 @@ def gen_qa(base_url, model, qtype, context, label):
     user = (f"[질문 유형] {TYPE_HINT[qtype]}\n\n[근거 {label}]\n{context[:2500]}\n\n"
             "위 근거만으로 답할 수 있는 질문과 정답을 JSON으로 생성하라.")
     return parse_json(chat(base_url, model, GEN_SYS, user, temperature=0.0))
+
+
+def gen_pair(base_url, model, context):
+    """격식체+구어체 질문 쌍 생성(공통 정답). 1회 호출로 matched pair."""
+    user = f"[근거 조문]\n{context[:2500]}\n\n격식체·구어체 질문 2개와 공통 정답을 JSON으로 생성하라."
+    return parse_json(chat(base_url, model, GEN_PAIR_SYS, user, temperature=0.0))
 
 
 def judge_qa(base_url, model, question, answer, context):
@@ -179,22 +195,52 @@ def main():
     pools = build_pools()
     print("단위 풀:", {k: len(v) for k, v in pools.items()})
 
-    results, qid = [], 0
+    results = []
+    counter = {"n": 0}
     stats = {"gen_fail": 0, "judge_drop": 0}
+
+    def emit(question, answer, gold, qtype, lawname, register="formal", pair_id=None):
+        counter["n"] += 1
+        results.append({"id": f"q{counter['n']:04d}", "question": question.strip(),
+                        "answer": answer.strip(), "gold_ids": gold, "type": qtype,
+                        "register": register, "pair_id": pair_id, "법령명": lawname})
+
     for qtype, pool in pools.items():
         RNG.shuffle(pool)
         picked = 0
+        # factoid는 격식체+구어체 쌍 생성 → per_type을 절반(쌍 수)으로 잡아 질문 총량 균형
+        target = max(1, args.per_type // 2) if qtype == "factoid" else args.per_type
         for unit in pool:
-            if picked >= args.per_type:
+            if picked >= target:
                 break
+            # ---- factoid: 격식↔구어 쌍 ----
+            if qtype == "factoid":
+                ctx = article_context(unit)
+                pair = gen_pair(args.base_url, args.model, ctx)
+                if not (pair and pair.get("formal") and pair.get("colloquial") and pair.get("answer")):
+                    stats["gen_fail"] += 1
+                    continue
+                if not args.no_judge and not judge_qa(args.base_url, args.model,
+                                                      pair["formal"], pair["answer"], ctx):
+                    stats["judge_drop"] += 1
+                    continue
+                pid = f"p{unit.uid}"
+                emit(pair["formal"], pair["answer"], [unit.uid], "factoid", unit.법령명, "formal", pid)
+                emit(pair["colloquial"], pair["answer"], [unit.uid], "factoid", unit.법령명, "colloquial", pid)
+                picked += 1
+                if counter["n"] % 10 == 0:
+                    print(f"  생성 {counter['n']} (factoid 쌍 {picked}/{target})")
+                time.sleep(0.05)
+                continue
+            # ---- 그 외 유형 ----
             if qtype == "byeolpyo":
                 ctx = byeolpyo_context(unit); gold = [unit.uid]; lawname = unit.법령명; label = "별표"
             elif qtype == "multihop":
-                base, impl = unit  # (본법조, 시행령조)
+                base, impl = unit
                 ctx = (f"[근거1·본법]\n{article_context(base)}\n\n"
                        f"[근거2·시행령]\n{article_context(impl)}")
                 gold = [base.uid, impl.uid]; lawname = base.법령명; label = "본법+시행령"
-            else:
+            else:  # crossref
                 ctx = article_context(unit); gold = [unit.uid]; lawname = unit.법령명; label = "조문"
             qa = gen_qa(args.base_url, args.model, qtype, ctx, label)
             if not qa or not qa.get("question") or not qa.get("answer"):
@@ -204,13 +250,10 @@ def main():
                                                   qa["question"], qa["answer"], ctx):
                 stats["judge_drop"] += 1
                 continue
-            qid += 1
-            results.append({"id": f"q{qid:04d}", "question": qa["question"].strip(),
-                            "answer": qa["answer"].strip(), "gold_ids": gold,
-                            "type": qtype, "법령명": lawname})
+            emit(qa["question"], qa["answer"], gold, qtype, lawname)
             picked += 1
-            if qid % 10 == 0:
-                print(f"  생성 {qid} (유형 {qtype} {picked}/{args.per_type})")
+            if counter["n"] % 10 == 0:
+                print(f"  생성 {counter['n']} (유형 {qtype} {picked}/{target})")
             time.sleep(0.05)
 
     with open(OUT, "w", encoding="utf-8") as f:
@@ -219,6 +262,7 @@ def main():
     from collections import Counter
     print(f"\n=== 골드셋 {len(results)}문 저장: {OUT} ===")
     print("유형별:", dict(Counter(r["type"] for r in results)))
+    print("register별:", dict(Counter(r["register"] for r in results)))
     print("드롭:", stats)
 
 

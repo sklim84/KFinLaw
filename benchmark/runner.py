@@ -47,7 +47,7 @@ def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=
         retr = build_retriever(retriever_kind, chunks, embedder=embedder, top_k=top_k)
     t_index = time.time() - t1
 
-    per_q, per_type = [], defaultdict(list)
+    per_q, per_type, per_reg = [], defaultdict(list), defaultdict(list)
     t2 = time.time()
     for q in goldset:
         hits = retr.search(q["question"], top_k=top_k)
@@ -55,6 +55,7 @@ def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=
         m = RM.evaluate(ranked, q["gold_ids"])
         per_q.append(m)
         per_type[q["type"]].append(m)
+        per_reg[q.get("register", "formal")].append(m)  # 격식/구어 분해(HyPE 어휘격차 측정)
     t_query = time.time() - t2
 
     result = {
@@ -63,6 +64,7 @@ def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=
         "n_chunks": len(chunks), "n_questions": len(goldset),
         "overall": RM.aggregate(per_q),
         "by_type": {t: RM.aggregate(v) for t, v in per_type.items()},
+        "by_register": {r: RM.aggregate(v) for r, v in per_reg.items()},
         "timing": {"chunk_s": round(t_chunk, 2), "index_s": round(t_index, 2),
                    "query_s": round(t_query, 2), "q_per_s": round(len(goldset) / t_query, 1) if t_query else 0},
     }
@@ -82,6 +84,10 @@ def print_report(result):
           f"@10={o['recall@10']:.3f} | mrr={o['mrr']:.3f} | ndcg@10={o['ndcg@10']:.3f}")
     for t, m in result["by_type"].items():
         print(f"  {t:9s} recall@5={m['recall@5']:.3f} | mrr={m['mrr']:.3f} | ndcg@10={m['ndcg@10']:.3f}")
+    reg = result.get("by_register", {})
+    if len(reg) > 1:  # 격식/구어 둘 다 있을 때만 (HyPE 어휘격차 비교)
+        for r, m in reg.items():
+            print(f"  [{r:10s}] recall@5={m['recall@5']:.3f} | mrr={m['mrr']:.3f}")
 
 
 def main():

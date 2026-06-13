@@ -69,6 +69,10 @@
 | E4 별표소스 | 청킹=조+별표, 임베딩=KURE-v1 | kordoc-md/평문/MinerU |
 | E5 HyPE | 청킹=조, 임베딩=KURE-v1, 검색=vector | 원문 vs HyPE(N=5) vs 원문+질문 |
 
+> **E5 측정법**: 골드셋 factoid는 같은 조문에서 **격식체+구어체 쌍**(공통 gold, `pair_id`)으로 생성된다.
+> 러너가 `by_register`(formal/colloquial)로 recall을 분해하므로, "원문 임베딩에선 구어체 recall이 격식체보다
+> 낮고(어휘격차), HyPE에선 그 격차가 줄어드는가"를 짝지어(paired) 직접 측정할 수 있다.
+
 ## 메트릭 (`benchmark/eval/`)
 - 검색: recall@k, precision@k, MRR, nDCG@k (유형별 분해)
 - 답변: LLM-judge(정확성/충실성/완결성) — 생성 LLM 고정, temp=0
