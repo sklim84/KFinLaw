@@ -5,21 +5,50 @@
 - factoid는 격식체+구어체 쌍(register, 공통 pair_id)으로 생성 → HyPE 어휘격차 효과 짝지어 측정
 산출: questions.jsonl  {id, question, answer, gold_ids, type, register, pair_id, 법령명}
 
+검증 2단계(오염 회피):
+  1) 일관성 필터(기본 ON, 모델 불필요): 질문→검색기 round-trip으로 원본 조문 회수 여부
+  2) LLM judge(선택): grounded + needs_context. **생성기와 다른 계열 모델 권장**(preference leakage)
+  → 1차(검색) 골드셋은 --no-judge로 일관성 필터만 써도 충분(LLM-judge 오염 완전 회피)
+
 사용:
-  # 먼저 vLLM 기동 (예): vllm serve Qwen/Qwen2.5-72B-Instruct --port 8000
-  python benchmark/goldset/build_goldset.py --base-url http://localhost:8000/v1 --model Qwen/Qwen2.5-72B-Instruct
-  python benchmark/goldset/build_goldset.py --smoke   # 유형별 2문만
+  # 생성기와 judge를 다른 endpoint/계열로 분리
+  python benchmark/goldset/build_goldset.py \
+    --base-url http://localhost:8000/v1 --model LGAI-EXAONE/EXAONE-4.0-32B \
+    --judge-base-url http://localhost:8001/v1 --judge-model upstage/Solar-Open-100B
+  # 1차 검색용(일관성 필터만, judge 생략):
+  python benchmark/goldset/build_goldset.py --base-url ... --model ... --no-judge
+  python benchmark/goldset/build_goldset.py --smoke
 """
 import json, re, argparse, urllib.request, time, sys, random
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / "pipeline"))
 from lawdoc import load_law  # noqa: E402
 
 HERE = Path(__file__).parent
 CORPUS = json.load(open(HERE.parent / "corpus_ids.json", encoding="utf-8"))
 OUT = HERE / "questions.jsonl"
 RNG = random.Random(42)  # 재현성
+
+
+# ---------- 일관성(round-trip) 필터 (모델 불필요, 오염 없음) ----------
+# Promptagator/InPars 기법: 생성 질문을 검색기에 넣어 원본 조문이 회수되는 질문만 채택.
+# 표면중첩·주제이탈·미접지(ungrounded) 질문을 LLM 없이 제거 → LLM-judge 의존(및 오염)을 줄임.
+# 주의: BM25(어휘적)는 구어체 질문을 과소평가할 수 있어, factoid 쌍은 '격식체'로 검사하고
+#       구어체는 같은 정답을 공유하므로 함께 채택(콜로퀴얼 페널티 회피).
+def build_consistency(retriever_kind="bm25", k=10):
+    from chunkers import build_chunks
+    from retrievers import build_retriever
+    chunks = build_chunks("article", CORPUS, byeolpyo="md")  # 조문 + 별표
+    retr = build_retriever(retriever_kind, chunks, top_k=max(k, 20))
+
+    def passes(question, gold_ids):
+        found = set()
+        for c, _ in retr.search(question, top_k=k):
+            found |= set(c["source_uids"])
+        return bool(set(gold_ids) & found)  # 멀티홉은 하나라도 회수되면 통과(관대)
+    return passes
 
 
 # ---------- LLM 클라이언트 (OpenAI 호환, 의존성 없음) ----------
@@ -183,21 +212,37 @@ def byeolpyo_context(b):
 
 def main():
     ap = argparse.ArgumentParser()
+    # 생성기(generator)
     ap.add_argument("--base-url", default="http://localhost:8000/v1")
     ap.add_argument("--model", default="Qwen/Qwen2.5-72B-Instruct")
+    # judge(검증기) — 생성기와 다른 계열 권장(preference leakage 회피). 미지정 시 생성기와 동일(경고).
+    ap.add_argument("--judge-base-url", default=None)
+    ap.add_argument("--judge-model", default=None)
     ap.add_argument("--per-type", type=int, default=60)
     ap.add_argument("--smoke", action="store_true")
-    ap.add_argument("--no-judge", action="store_true")
+    ap.add_argument("--no-judge", action="store_true", help="LLM judge 생략(일관성 필터만으로 검증)")
+    # 일관성(round-trip) 필터 — 모델 불필요, 기본 ON
+    ap.add_argument("--no-consistency", action="store_true")
+    ap.add_argument("--ck", type=int, default=10, help="일관성 필터 top-k")
     args = ap.parse_args()
     if args.smoke:
         args.per_type = 2
 
+    judge_url = args.judge_base_url or args.base_url
+    judge_model = args.judge_model or args.model
+    if not args.no_judge and judge_model == args.model:
+        print("  [경고] judge 모델이 생성기와 동일 → preference leakage 위험. "
+              "--judge-model로 다른 계열 분리 권장(또는 --no-judge로 일관성 필터만 사용).")
+
+    passes = None if args.no_consistency else build_consistency(k=args.ck)
     pools = build_pools()
     print("단위 풀:", {k: len(v) for k, v in pools.items()})
+    print(f"생성기={args.model} | judge={'OFF' if args.no_judge else judge_model} | "
+          f"일관성필터={'OFF' if args.no_consistency else 'BM25@'+str(args.ck)}")
 
     results = []
     counter = {"n": 0}
-    stats = {"gen_fail": 0, "judge_drop": 0}
+    stats = {"gen_fail": 0, "judge_drop": 0, "consistency_drop": 0}
 
     def emit(question, answer, gold, qtype, lawname, register="formal", pair_id=None):
         counter["n"] += 1
@@ -220,9 +265,13 @@ def main():
                 if not (pair and pair.get("formal") and pair.get("colloquial") and pair.get("answer")):
                     stats["gen_fail"] += 1
                     continue
-                if not args.no_judge and not judge_qa(args.base_url, args.model,
+                if not args.no_judge and not judge_qa(judge_url, judge_model,
                                                       pair["formal"], pair["answer"], ctx):
                     stats["judge_drop"] += 1
+                    continue
+                # 일관성: 격식체로 검사(구어체는 같은 정답 공유 → 함께 채택, 콜로퀴얼 페널티 회피)
+                if passes and not passes(pair["formal"], [unit.uid]):
+                    stats["consistency_drop"] += 1
                     continue
                 pid = f"p{unit.uid}"
                 emit(pair["formal"], pair["answer"], [unit.uid], "factoid", unit.법령명, "formal", pid)
@@ -246,9 +295,12 @@ def main():
             if not qa or not qa.get("question") or not qa.get("answer"):
                 stats["gen_fail"] += 1
                 continue
-            if not args.no_judge and not judge_qa(args.base_url, args.model,
+            if not args.no_judge and not judge_qa(judge_url, judge_model,
                                                   qa["question"], qa["answer"], ctx):
                 stats["judge_drop"] += 1
+                continue
+            if passes and not passes(qa["question"], gold):
+                stats["consistency_drop"] += 1
                 continue
             emit(qa["question"], qa["answer"], gold, qtype, lawname)
             picked += 1
