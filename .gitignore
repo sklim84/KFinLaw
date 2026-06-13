@@ -1,0 +1,42 @@
+# ===== 대용량 데이터 (스크립트로 재생성 가능) =====
+# data/raw_xml: 법령 XML 2,582개(551MB) — collect_laws.py로 재수집
+# data/byeolpyo_pdf: 별표 PDF 1,083개(94MB) — download_byeolpyo.py로 재다운로드
+# data/byeolpyo_md: kordoc 변환 생성물
+data/raw_xml/
+data/byeolpyo_pdf/
+data/byeolpyo_md/
+
+# ===== 로컬 설치 도구 (재설치 가능) =====
+# tools: LibreOffice + H2Orestart (~740MB)
+tools/
+out/
+
+# ===== 테스트/생성 산출물 =====
+tests/byeolpyo_parser/node_modules/
+tests/byeolpyo_parser/out/
+tests/byeolpyo_parser/batch_smoke/
+tests/byeolpyo_parser/shim/
+tests/byeolpyo_parser/pdf/
+tests/byeolpyo_parser/mineru_install.log
+benchmark/reports/
+
+# ===== 파이썬 =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# ===== 모델/캐시 =====
+*.bin
+*.safetensors
+.cache/
+
+# ===== 보안: 비밀정보 절대 커밋 금지 =====
+*.token
+*_token*
+.env
+secrets*
+*credential*
+
+# Claude Code 로컬 상태
+.claude/
