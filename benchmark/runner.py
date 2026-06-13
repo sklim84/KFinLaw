@@ -16,8 +16,8 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / "pipeline"))
 sys.path.insert(0, str(HERE / "eval"))
 
-from chunkers import build_chunks            # noqa: E402
-from retrievers import build_retriever       # noqa: E402
+from chunkers import build_chunks, chunk_article, chunk_hang  # noqa: E402
+from retrievers import build_retriever, ParentDocRetriever    # noqa: E402
 import retrieval_metrics as RM               # noqa: E402
 
 CORPUS = json.load(open(HERE / "corpus_ids.json", encoding="utf-8"))
@@ -27,31 +27,39 @@ def load_goldset(path):
     return [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
 
 
-def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10):
+def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=None):
     t0 = time.time()
-    chunks = build_chunks(chunker, CORPUS)
+    chunks = build_chunks(chunker, CORPUS, byeolpyo=byeolpyo)
     t_chunk = time.time() - t0
 
     embedder = None
     if retriever_kind == "vector":
         from embedders import Embedder
         embedder = Embedder(embedder_name)
+
     t1 = time.time()
-    retr = build_retriever(retriever_kind, chunks, embedder=embedder, top_k=top_k)
+    if chunker == "parent":
+        # 자식(항)으로 검색 → 부모(조)로 dedup → 부모 전체 본문 반환
+        parent_text = {c["source_uids"][0]: c["text"] for c in chunk_article(CORPUS)}
+        retr = ParentDocRetriever(chunks, parent_text, retriever_kind,
+                                  embedder=embedder, top_k=top_k)
+    else:
+        retr = build_retriever(retriever_kind, chunks, embedder=embedder, top_k=top_k)
     t_index = time.time() - t1
 
     per_q, per_type = [], defaultdict(list)
     t2 = time.time()
     for q in goldset:
         hits = retr.search(q["question"], top_k=top_k)
-        ranked = [chunks[i] for i, _ in hits]
+        ranked = [c for c, _ in hits]
         m = RM.evaluate(ranked, q["gold_ids"])
         per_q.append(m)
         per_type[q["type"]].append(m)
     t_query = time.time() - t2
 
     result = {
-        "config": {"chunker": chunker, "retriever": retriever_kind, "embedder": embedder_name},
+        "config": {"chunker": chunker, "retriever": retriever_kind, "embedder": embedder_name,
+                   "byeolpyo": byeolpyo},
         "n_chunks": len(chunks), "n_questions": len(goldset),
         "overall": RM.aggregate(per_q),
         "by_type": {t: RM.aggregate(v) for t, v in per_type.items()},
@@ -81,6 +89,8 @@ def main():
     ap.add_argument("--chunker", default="article")
     ap.add_argument("--retriever", default="bm25", choices=["bm25", "vector"])
     ap.add_argument("--embedder", default="kure-v1")
+    ap.add_argument("--byeolpyo", default=None, choices=[None, "md", "plain"],
+                    help="별표 청크 포함 여부/소스 (byeolpyo 유형 질문 평가 시 필요)")
     ap.add_argument("--goldset", default=str(HERE / "goldset" / "questions.jsonl"))
     ap.add_argument("--top-k", type=int, default=10)
     ap.add_argument("--out", default=str(HERE / "reports"))
@@ -88,7 +98,7 @@ def main():
 
     goldset = load_goldset(args.goldset)
     print(f"골드셋: {len(goldset)}문 ({args.goldset})")
-    result = run_one(args.chunker, args.retriever, args.embedder, goldset, args.top_k)
+    result = run_one(args.chunker, args.retriever, args.embedder, goldset, args.top_k, args.byeolpyo)
     print_report(result)
 
     Path(args.out).mkdir(parents=True, exist_ok=True)

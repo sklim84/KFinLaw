@@ -91,23 +91,39 @@ def judge_qa(base_url, model, question, answer, context):
 
 # ---------- 단위 풀 구성 ----------
 def build_pools():
+    """factoid/crossref/byeolpyo 풀 + multihop은 (본법조, 시행령조) 페어"""
     arts_all, byps_all = [], []
+    families = {}  # 본법명 -> {'본법':[arts], '시행령':[arts]}
     for c in CORPUS:
         _, arts, byps = load_law(c["mst"])
-        for a in arts:
-            if a.is_buchik or len(a.본문) < 60:
-                continue
-            arts_all.append(a)
+        arts = [a for a in arts if not a.is_buchik and len(a.본문) >= 60]
+        arts_all.extend(arts)
         for b in byps:
             if b.구분 == "별표" and (b.md_path or len(b.본문_평문) > 100):
                 byps_all.append(b)
-    pools = {
-        "factoid": [a for a in arts_all],
+        fam = families.setdefault(c["본법"], {"본법": [], "시행령": []})
+        if c["역할"] in ("본법", "시행령"):
+            fam[c["역할"]].extend(arts)
+
+    # multihop 페어: 본법 위임조('대통령령') ↔ 그 조를 인용하는 시행령 조('법 제N조')
+    pairs = []
+    for famname, fam in families.items():
+        siv = fam["시행령"]
+        for a in fam["본법"]:
+            if "대통령령" not in a.본문:
+                continue
+            n = a.조문번호
+            cited = [s for s in siv
+                     if re.search(rf"법\s*제{n}조(?!\d)", s.본문) or f"제{n}조" in s.본문]
+            if cited:
+                pairs.append((a, cited[0]))
+
+    return {
+        "factoid": list(arts_all),
         "crossref": [a for a in arts_all if a.refs],
-        "multihop": [a for a in arts_all if ("대통령령" in a.본문 or "총리령" in a.본문)],
         "byeolpyo": byps_all,
+        "multihop": pairs,  # [(본법조, 시행령조), ...]
     }
-    return pools
 
 
 def article_context(a):
@@ -148,6 +164,11 @@ def main():
                 break
             if qtype == "byeolpyo":
                 ctx = byeolpyo_context(unit); gold = [unit.uid]; lawname = unit.법령명; label = "별표"
+            elif qtype == "multihop":
+                base, impl = unit  # (본법조, 시행령조)
+                ctx = (f"[근거1·본법]\n{article_context(base)}\n\n"
+                       f"[근거2·시행령]\n{article_context(impl)}")
+                gold = [base.uid, impl.uid]; lawname = base.법령명; label = "본법+시행령"
             else:
                 ctx = article_context(unit); gold = [unit.uid]; lawname = unit.법령명; label = "조문"
             qa = gen_qa(args.base_url, args.model, qtype, ctx, label)
