@@ -28,18 +28,24 @@ def load_goldset(path):
 
 
 def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=None,
-            rerank=False):
+            rerank=False, hype=False):
     t0 = time.time()
     chunks = build_chunks(chunker, CORPUS, byeolpyo=byeolpyo)
     t_chunk = time.time() - t0
 
     embedder = None
-    if retriever_kind in ("vector", "hybrid"):
+    if retriever_kind in ("vector", "hybrid") or hype:
         from embedders import Embedder
         embedder = Embedder(embedder_name)
 
     t1 = time.time()
-    if chunker == "parent":
+    if hype:
+        # HyPE: 가설질문 임베딩 색인. hype=="raw"면 원문 병행(coverage gap 완화)
+        from retrievers import HyPERetriever
+        hq = json.load(open(HERE / "hype_cache.json", encoding="utf-8"))
+        retr = HyPERetriever(chunks, embedder, hq, top_k=top_k,
+                             include_raw=(hype == "raw"))
+    elif chunker == "parent":
         # 자식(항)으로 검색 → 부모(조)로 dedup → 부모 전체 본문 반환
         parent_text = {c["source_uids"][0]: c["text"] for c in chunk_article(CORPUS)}
         retr = ParentDocRetriever(chunks, parent_text, retriever_kind,
@@ -100,6 +106,9 @@ def main():
     ap.add_argument("--retriever", default="bm25", choices=["bm25", "vector", "hybrid"])
     ap.add_argument("--embedder", default="kure-v1")
     ap.add_argument("--rerank", action="store_true", help="크로스인코더(bge-reranker-v2-m3) 재순위")
+    ap.add_argument("--hype", nargs="?", const="questions", default=None,
+                    choices=["questions", "raw"],
+                    help="HyPE 색인: questions=가설질문만 / raw=가설질문+원문 병행")
     ap.add_argument("--byeolpyo", default=None, choices=[None, "md", "plain"],
                     help="별표 청크 포함 여부/소스 (byeolpyo 유형 질문 평가 시 필요)")
     ap.add_argument("--goldset", default=str(HERE / "goldset" / "questions.jsonl"))
@@ -110,13 +119,13 @@ def main():
     goldset = load_goldset(args.goldset)
     print(f"골드셋: {len(goldset)}문 ({args.goldset})")
     result = run_one(args.chunker, args.retriever, args.embedder, goldset, args.top_k,
-                     args.byeolpyo, args.rerank)
+                     args.byeolpyo, args.rerank, args.hype)
     print_report(result)
 
     Path(args.out).mkdir(parents=True, exist_ok=True)
     tag = (f"{args.chunker}_{args.retriever}"
-           + (f"_{args.embedder}" if args.retriever in ("vector", "hybrid") else "")
-           + ("_rerank" if args.rerank else ""))
+           + (f"_{args.embedder}" if args.retriever in ("vector", "hybrid") or args.hype else "")
+           + ("_hype" if args.hype else "") + ("_rerank" if args.rerank else ""))
     fp = Path(args.out) / f"{tag}.json"
     json.dump(result, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     print(f"\n저장: {fp}")

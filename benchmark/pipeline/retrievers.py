@@ -121,6 +121,44 @@ class Reranker:
         return [(c, float(s)) for c, s in ranked[:k]]
 
 
+class HyPERetriever:
+    """HyPE: 청크 원문 대신 '가설 질문'들을 임베딩해 색인. 질의(질문)↔가설질문 매칭 후
+    원본 청크로 역매핑·dedup. 격식 조문↔구어 질문 어휘격차 해소가 목적.
+    hype_questions: {chunk_id: [질문...]}. 질문 없는 청크는 원문으로 폴백(하이브리드 색인)."""
+    def __init__(self, chunks, embedder, hype_questions, top_k=10, include_raw=False):
+        # include_raw=True: 가설질문 + 원문 청크 둘 다 색인(coverage gap 완화, 하이브리드 색인)
+        self.embedder = embedder
+        self.top_k = top_k
+        texts, self.owner = [], []   # 각 벡터 → 소속 chunk
+        for c in chunks:
+            qs = hype_questions.get(c["chunk_id"]) or []
+            if qs:
+                for q in qs:
+                    texts.append(q); self.owner.append(c)
+                if include_raw:
+                    texts.append(c["text"]); self.owner.append(c)
+            else:
+                texts.append(c["text"]); self.owner.append(c)  # 폴백
+        self.mat = embedder.encode_passages(texts)
+
+    def search(self, query, top_k=None):
+        k = top_k or self.top_k
+        q = self.embedder.encode_queries([query])[0]
+        scores = self.mat @ q
+        order = np.argsort(-scores)
+        out, seen = [], set()
+        for i in order:
+            c = self.owner[int(i)]
+            cid = c["chunk_id"]
+            if cid in seen:
+                continue
+            seen.add(cid)
+            out.append((c, float(scores[i])))
+            if len(out) >= k:
+                break
+        return out
+
+
 def build_retriever(kind, chunks, embedder=None, top_k=10):
     if kind == "vector":
         return VectorRetriever(chunks, embedder, top_k)
