@@ -99,13 +99,15 @@ def load_law(mst):
     for u in r.findall(".//별표단위"):
         num = _txt(u, "별표번호") or "0"
         ga = _txt(u, "별표가지번호")
+        # key는 다운로드/변환 파일명과 동일 규칙(가지 '00'도 포함). 가지가 다른 별표는
+        # 서로 다른 문서이므로 uid에도 반드시 가지를 넣어야 충돌하지 않음(별표8 vs 별표8의2).
         key = num + (f"-{ga}" if ga and ga != "0" else "")
         title = _txt(u, "별표제목")
         m = re.search(r"제(\d+)조", title)
         md = BYP_MD / f"{mst}_{key}.md"
         byps.append(Byeolpyo(
-            uid=f"{lawid}-별표{num}",
-            법령ID=lawid, 법령명=lawname, 번호=num,
+            uid=f"{lawid}-별표{key}",
+            법령ID=lawid, 법령명=lawname, 번호=key,
             구분=_txt(u, "별표구분"), 제목=title,
             관련조문=(f"제{m.group(1)}조" if m else ""),
             본문_평문=_txt(u, "별표내용"),

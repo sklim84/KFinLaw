@@ -42,8 +42,8 @@ def chunk_hang(corpus):
     chunks = []
     for a in _articles(corpus):
         bc = _breadcrumb(a)
-        # 본문을 항 마커(①②… 또는 줄 들여쓰기)로 분할
-        parts = re.split(r"\n(?=\s{2}[①-⑳])", a.본문)
+        # 본문을 항 마커(①②…, 21항 이상 ㉑–㊿ 포함)로 분할
+        parts = re.split(r"\n(?=\s{2}[①-⑳㉑-㊿])", a.본문)
         if len(parts) <= 1:
             chunks.append({"chunk_id": a.uid, "text": f"[{bc}]\n{a.본문}", "source_uids": [a.uid]})
         else:

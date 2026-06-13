@@ -30,8 +30,10 @@ def recall_at_k(ranked_chunks, gold_ids, k):
 
 def precision_at_k(ranked_chunks, gold_ids, k):
     gold = set(gold_ids)
-    hits = sum(1 for c in ranked_chunks[:k] if gold & set(c["source_uids"]))
-    return hits / k
+    top = ranked_chunks[:k]
+    hits = sum(1 for c in top if gold & set(c["source_uids"]))
+    denom = len(top)  # 실제 반환 수로 나눔(parent-doc 등 k 미만 반환 시 과소평가 방지)
+    return hits / denom if denom else 0.0
 
 
 def mrr(ranked_chunks, gold_ids):
@@ -43,13 +45,18 @@ def mrr(ranked_chunks, gold_ids):
 
 
 def ndcg_at_k(ranked_chunks, gold_ids, k):
+    """다중 gold 대응: 각 gold id를 '최초로 등장한 순위'에서 1회만 보상(중복 제거).
+    한 청크가 여러 gold를 담아도(co-location) 순위 1개로 계산되며, 1.0 상한.
+    단일 gold(factoid/crossref/byeolpyo)에선 정확, 다중 gold(multihop)에선 하한 근사."""
     gold = set(gold_ids)
-    dcg = 0.0
+    dcg, seen = 0.0, set()
     for i, c in enumerate(ranked_chunks[:k], 1):
-        rel = 1.0 if (gold & set(c["source_uids"])) else 0.0
-        dcg += rel / math.log2(i + 1)
+        new = (gold & set(c["source_uids"])) - seen
+        if new:
+            dcg += 1.0 / math.log2(i + 1)
+            seen |= new
     ideal = sum(1.0 / math.log2(i + 1) for i in range(1, min(len(gold), k) + 1))
-    return dcg / ideal if ideal else 0.0
+    return min(dcg / ideal, 1.0) if ideal else 0.0
 
 
 def evaluate(ranked_chunks, gold_ids, ks=(1, 3, 5, 10)):
