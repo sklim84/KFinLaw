@@ -27,13 +27,14 @@ def load_goldset(path):
     return [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
 
 
-def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=None):
+def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=None,
+            rerank=False):
     t0 = time.time()
     chunks = build_chunks(chunker, CORPUS, byeolpyo=byeolpyo)
     t_chunk = time.time() - t0
 
     embedder = None
-    if retriever_kind == "vector":
+    if retriever_kind in ("vector", "hybrid"):
         from embedders import Embedder
         embedder = Embedder(embedder_name)
 
@@ -45,6 +46,9 @@ def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=
                                   embedder=embedder, top_k=top_k)
     else:
         retr = build_retriever(retriever_kind, chunks, embedder=embedder, top_k=top_k)
+    if rerank:
+        from retrievers import Reranker
+        retr = Reranker(retr, top_k=top_k)  # 기저 검색 후보를 크로스인코더로 재정렬
     t_index = time.time() - t1
 
     per_q, per_type, per_reg = [], defaultdict(list), defaultdict(list)
@@ -60,7 +64,7 @@ def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=
 
     result = {
         "config": {"chunker": chunker, "retriever": retriever_kind, "embedder": embedder_name,
-                   "byeolpyo": byeolpyo},
+                   "byeolpyo": byeolpyo, "rerank": rerank},
         "n_chunks": len(chunks), "n_questions": len(goldset),
         "overall": RM.aggregate(per_q),
         "by_type": {t: RM.aggregate(v) for t, v in per_type.items()},
@@ -93,8 +97,9 @@ def print_report(result):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--chunker", default="article")
-    ap.add_argument("--retriever", default="bm25", choices=["bm25", "vector"])
+    ap.add_argument("--retriever", default="bm25", choices=["bm25", "vector", "hybrid"])
     ap.add_argument("--embedder", default="kure-v1")
+    ap.add_argument("--rerank", action="store_true", help="크로스인코더(bge-reranker-v2-m3) 재순위")
     ap.add_argument("--byeolpyo", default=None, choices=[None, "md", "plain"],
                     help="별표 청크 포함 여부/소스 (byeolpyo 유형 질문 평가 시 필요)")
     ap.add_argument("--goldset", default=str(HERE / "goldset" / "questions.jsonl"))
@@ -104,11 +109,14 @@ def main():
 
     goldset = load_goldset(args.goldset)
     print(f"골드셋: {len(goldset)}문 ({args.goldset})")
-    result = run_one(args.chunker, args.retriever, args.embedder, goldset, args.top_k, args.byeolpyo)
+    result = run_one(args.chunker, args.retriever, args.embedder, goldset, args.top_k,
+                     args.byeolpyo, args.rerank)
     print_report(result)
 
     Path(args.out).mkdir(parents=True, exist_ok=True)
-    tag = f"{args.chunker}_{args.retriever}" + (f"_{args.embedder}" if args.retriever == "vector" else "")
+    tag = (f"{args.chunker}_{args.retriever}"
+           + (f"_{args.embedder}" if args.retriever in ("vector", "hybrid") else "")
+           + ("_rerank" if args.rerank else ""))
     fp = Path(args.out) / f"{tag}.json"
     json.dump(result, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     print(f"\n저장: {fp}")

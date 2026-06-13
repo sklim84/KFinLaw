@@ -77,9 +77,55 @@ class ParentDocRetriever:
         return out
 
 
+class HybridRetriever:
+    """BM25(어휘) + Vector(의미)를 RRF(Reciprocal Rank Fusion)로 융합.
+    score(d) = Σ_r 1/(k_rrf + rank_r(d)). 법령RAG의 BM25·dense 상호보완을 결합."""
+    def __init__(self, chunks, embedder, top_k=10, k_rrf=60, fanout=50):
+        self.bm25 = BM25Retriever(chunks, top_k=fanout)
+        self.vector = VectorRetriever(chunks, embedder, top_k=fanout)
+        self.top_k, self.k_rrf, self.fanout = top_k, k_rrf, fanout
+
+    def search(self, query, top_k=None):
+        k = top_k or self.top_k
+        fused, cmap = {}, {}
+        for ranked in (self.bm25.search(query, self.fanout),
+                       self.vector.search(query, self.fanout)):
+            for rank, (chunk, _) in enumerate(ranked, 1):
+                cid = chunk["chunk_id"]
+                fused[cid] = fused.get(cid, 0.0) + 1.0 / (self.k_rrf + rank)
+                cmap[cid] = chunk
+        order = sorted(fused.items(), key=lambda x: -x[1])[:k]
+        return [(cmap[cid], sc) for cid, sc in order]
+
+
+class Reranker:
+    """크로스인코더 재순위(bge-reranker-v2-m3). 기저 검색기 top-N 후보를 (질의,청크)
+    쌍으로 점수화해 재정렬. 정밀도·MRR 개선 목적."""
+    _cache = {}
+
+    def __init__(self, base, model_name="BAAI/bge-reranker-v2-m3", top_k=10, candidates=30):
+        if model_name not in Reranker._cache:
+            from sentence_transformers import CrossEncoder
+            Reranker._cache[model_name] = CrossEncoder(model_name, device="cuda",
+                                                       trust_remote_code=True)
+        self.ce = Reranker._cache[model_name]
+        self.base, self.top_k, self.candidates = base, top_k, candidates
+
+    def search(self, query, top_k=None):
+        k = top_k or self.top_k
+        cand = self.base.search(query, self.candidates)
+        if not cand:
+            return []
+        scores = self.ce.predict([(query, c["text"]) for c, _ in cand])
+        ranked = sorted(zip((c for c, _ in cand), scores), key=lambda x: -float(x[1]))
+        return [(c, float(s)) for c, s in ranked[:k]]
+
+
 def build_retriever(kind, chunks, embedder=None, top_k=10):
     if kind == "vector":
         return VectorRetriever(chunks, embedder, top_k)
     if kind == "bm25":
         return BM25Retriever(chunks, top_k)
+    if kind == "hybrid":
+        return HybridRetriever(chunks, embedder, top_k)
     raise ValueError(f"unknown retriever: {kind}")
