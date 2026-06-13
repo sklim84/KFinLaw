@@ -46,3 +46,6 @@ tests/vllm/
 tests/venv/
 tests/*.log
 tools/flash_attn_stub/
+
+# LightRAG 색인 storage (재생성)
+benchmark/lightrag_storage/
