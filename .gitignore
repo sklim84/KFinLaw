@@ -39,6 +39,9 @@ __pycache__/
 secrets*
 *credential*
 
+# 내부 전용(공개 README 비포함)
+STATUS.md
+
 # Claude Code 로컬 상태
 .claude/
 

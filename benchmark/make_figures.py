@@ -294,7 +294,8 @@ def f6_answer_models():
 
 
 if __name__ == "__main__":
-    f0_pipeline()
+    # 그림0(fig_00_pipeline.png)은 외부에서 별도 관리(손그림 도식) — 자동 생성 제외.
+    # 필요 시 f0_pipeline()을 직접 호출해 matplotlib 버전으로 재생성 가능.
     f1_leaderboard()
     f_chunking()
     f2_by_type()
