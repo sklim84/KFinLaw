@@ -254,7 +254,7 @@ def f5_register():
     ax.set_ylabel("recall@5 (factoid 쌍)")
     ax.set_ylim(0, 1.12)
     ax.legend(fontsize=9, frameon=True, edgecolor="#dddddd")
-    save(fig, "fig_06_register.png")
+    save(fig, "fig_07_register.png")
 
 
 # ===== F6. 답변모델 비교 (heatmap) =====
@@ -290,7 +290,7 @@ def f6_answer_models():
         s.set_visible(False)
     cb = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
     cb.outline.set_visible(False)
-    save(fig, "fig_07_answer_models.png")
+    save(fig, "fig_06_answer_models.png")
 
 
 if __name__ == "__main__":
