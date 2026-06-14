@@ -74,14 +74,25 @@ async def main_async(args):
     t2u = text2uid_map()
     goldset = load_jsonl(HERE / "goldset" / "questions.jsonl")
     print(f"골드셋 {len(goldset)}문 | 청크맵 {len(t2u)}")
+    modes = {}
     for mode in args.modes:
         overall, by_type = await eval_mode(rag, mode, goldset, t2u, args.top_k)
+        modes[mode] = {"overall": overall, "by_type": by_type}
         print(f"\n=== LightRAG mode={mode} ===")
         print(f"  전체  recall@1={overall['recall@1']:.3f} @5={overall['recall@5']:.3f} "
               f"@10={overall['recall@10']:.3f} | mrr={overall['mrr']:.3f} | ndcg@10={overall['ndcg@10']:.3f}")
         for t, mm in by_type.items():
             print(f"  {t:9s} recall@5={mm['recall@5']:.3f} | mrr={mm['mrr']:.3f}")
     await rag.finalize_storages()
+
+    # 결과 JSON 저장 (retrieval_runner와 동일하게 reports/에 기록)
+    reports = HERE / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    fp = reports / "lightrag_eval.json"
+    out = {"experiment": "E6_lightrag", "n_questions": len(goldset),
+           "top_k": args.top_k, "modes": modes}
+    json.dump(out, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    print(f"\n저장: {fp}")
 
 
 def main():

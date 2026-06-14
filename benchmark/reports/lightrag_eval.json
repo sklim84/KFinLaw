@@ -1,0 +1,53 @@
+{
+  "experiment": "E6_lightrag",
+  "n_questions": 240,
+  "top_k": 10,
+  "_note": "2026-06-14 실측. lightrag_eval stdout에서 재구성(출력 메트릭 부분집합). 전체 메트릭 집합은 다음 실행 시 자동 저장됨.",
+  "modes": {
+    "naive": {
+      "overall": {"recall@1": 0.460, "recall@5": 0.738, "recall@10": 0.762, "mrr": 0.639, "ndcg@10": 0.648},
+      "by_type": {
+        "factoid": {"recall@5": 1.000, "mrr": 0.859},
+        "crossref": {"recall@5": 0.467, "mrr": 0.318},
+        "byeolpyo": {"recall@5": 0.783, "mrr": 0.626},
+        "multihop": {"recall@5": 0.700, "mrr": 0.753}
+      }
+    },
+    "local": {
+      "overall": {"recall@1": 0.315, "recall@5": 0.463, "recall@10": 0.517, "mrr": 0.430, "ndcg@10": 0.430},
+      "by_type": {
+        "factoid": {"recall@5": 0.650, "mrr": 0.610},
+        "crossref": {"recall@5": 0.417, "mrr": 0.278},
+        "byeolpyo": {"recall@5": 0.350, "mrr": 0.322},
+        "multihop": {"recall@5": 0.433, "mrr": 0.510}
+      }
+    },
+    "global": {
+      "overall": {"recall@1": 0.425, "recall@5": 0.585, "recall@10": 0.673, "mrr": 0.554, "ndcg@10": 0.558},
+      "by_type": {
+        "factoid": {"recall@5": 0.800, "mrr": 0.719},
+        "crossref": {"recall@5": 0.333, "mrr": 0.293},
+        "byeolpyo": {"recall@5": 0.633, "mrr": 0.536},
+        "multihop": {"recall@5": 0.575, "mrr": 0.667}
+      }
+    },
+    "hybrid": {
+      "overall": {"recall@1": 0.450, "recall@5": 0.644, "recall@10": 0.723, "mrr": 0.593, "ndcg@10": 0.597},
+      "by_type": {
+        "factoid": {"recall@5": 0.883, "mrr": 0.797},
+        "crossref": {"recall@5": 0.417, "mrr": 0.316},
+        "byeolpyo": {"recall@5": 0.667, "mrr": 0.550},
+        "multihop": {"recall@5": 0.608, "mrr": 0.708}
+      }
+    },
+    "mix": {
+      "overall": {"recall@1": 0.450, "recall@5": 0.665, "recall@10": 0.762, "mrr": 0.606, "ndcg@10": 0.616},
+      "by_type": {
+        "factoid": {"recall@5": 0.933, "mrr": 0.829},
+        "crossref": {"recall@5": 0.383, "mrr": 0.300},
+        "byeolpyo": {"recall@5": 0.717, "mrr": 0.573},
+        "multihop": {"recall@5": 0.625, "mrr": 0.722}
+      }
+    }
+  }
+}

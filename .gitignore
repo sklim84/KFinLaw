@@ -18,8 +18,8 @@ tests/byeolpyo_parser/batch_smoke/
 tests/byeolpyo_parser/shim/
 tests/byeolpyo_parser/pdf/
 tests/byeolpyo_parser/mineru_install.log
-benchmark/reports/
 benchmark/goldset/spotcheck/      # 생성기 비교 산출물(재생성 가능, spotcheck.py로)
+# benchmark/reports/ 는 추적함 — 실험 결과(검색 leaderboard·E6) 영구 기록
 
 # ===== 파이썬 =====
 __pycache__/
