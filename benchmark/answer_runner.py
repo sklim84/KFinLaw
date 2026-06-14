@@ -1,11 +1,11 @@
 """
-레이어2 답변 생성 평가 러너 (§8)
-질문별: ① 검색(레이어1 최적 config 고정) → ② 답변 생성(답변모델) → ③ 채점(judge + 자동 인용검증).
+답변 생성 평가 러너 (검색 평가의 후속 단계)
+질문별: ① 검색(최적 검색 config 고정) → ② 답변 생성(답변모델) → ③ 채점(judge + 자동 인용검증).
 검색 config를 고정해 '답변모델' 효과만 격리한다. judge는 답변모델과 다른 계열(자기우대 회피).
 
 비교 축(--retrieval):
-  good = 하이브리드+리랭커 top-k (레이어1 최적)   | bad = 단일 BM25 top-1 | none = closed-book(컨텍스트 없음)
-  → good vs bad = '검색품질→답변품질' 전이, none = RAG 실효·환각 누출 대조(§8.3).
+  good = 하이브리드+리랭커 top-k (최적 검색)   | bad = 단일 BM25 top-1 | none = closed-book(컨텍스트 없음)
+  → good vs bad = '검색품질→답변품질' 전이, none = RAG 실효·환각 누출 대조.
 
 사용 (답변모델·judge를 다른 endpoint/계열로 서빙):
   python -m benchmark.answer_runner \
@@ -50,7 +50,7 @@ def build_context_retriever(mode, embedder_name):
     if mode == "bad":
         chunks = build_chunks("article", CORPUS, byeolpyo=byeolpyo)
         return build_retriever("bm25", chunks, top_k=1), 1
-    # good: 레이어1 최적(조청킹 + 하이브리드 + 리랭커)
+    # good: 최적 검색(조청킹 + 하이브리드 + 리랭커)
     r = AE["retrieval"]
     chunks = build_chunks(r["chunker"], CORPUS, byeolpyo=byeolpyo)
     from benchmark.pipeline.embedders import Embedder
@@ -115,7 +115,7 @@ def run(args):
     print(f"답변모델={args.answer_model} | judge={args.judge_model} | 검색={args.retrieval}"
           f"(n_ctx={n_ctx}) | 골드셋 {len(goldset)}문")
     if args.judge_model == args.answer_model:
-        print("  [경고] judge=답변모델 → self-enhancement(자기우대) 편향. 다른 계열 분리 권장(§8.4).")
+        print("  [경고] judge=답변모델 → self-enhancement(자기우대) 편향. 다른 계열 분리 권장.")
     if args.judge_base_url is None and args.judge_model != args.answer_model:
         print(f"  [경고] judge endpoint 미지정 → 답변모델과 같은 {judge_url} 사용. "
               "vLLM은 단일 모델만 서빙하므로 judge 호출이 실패할 수 있음. --judge-base-url로 분리 권장.")

@@ -12,13 +12,13 @@ serving:
 # 역할별 모델 (오염 회피: 생성기·judge·답변모델 계열 분리)
 models:
   generator: "mistralai/Mistral-Small-4-119B-2603"   # 골드셋·HyPE 생성기 (독립 계열)
-  judge: "openai/gpt-oss-120b"                        # 레이어2 답변 평가 judge (독립 계열)
+  judge: "openai/gpt-oss-120b"                        # 답변 평가 judge (독립 계열)
   reranker: "BAAI/bge-reranker-v2-m3"                 # 크로스인코더 재순위
   embedders:                                          # 키 → HuggingFace repo
     kure-v1: "nlpai-lab/KURE-v1"
     bge-m3: "BAAI/bge-m3"
     koe5: "nlpai-lab/KoE5"
-  answer_models:                                      # 레이어2 평가대상(사내 실사용)
+  answer_models:                                      # 답변 평가 대상(사내 실사용)
     - "skt/A.X-4.0"
     - "upstage/Solar-Open-100B"
     - "LGAI-EXAONE/EXAONE-4.0-32B"
@@ -38,7 +38,7 @@ goldset:
   per_type: 60            # 유형별 질문 수
   consistency_top_k: 10   # 일관성(round-trip) 필터 top-k
 
-# 레이어2 답변 생성 평가
+# 답변 평가
 # 주의: 답변모델·judge는 max_model_len >= 8192 로 서빙 권장.
 #   회수 컨텍스트(top_k × chars_per_chunk) + 질문 + 답변이 한 프롬프트에 들어가므로
 #   serving.max_model_len(4096)보다 큰 창이 필요(컨텍스트 잘림으로 gold 누락 방지).
@@ -46,7 +46,7 @@ answer_eval:
   context_top_k: 5          # 답변 생성에 넣을 회수 컨텍스트 수
   ctx_chars_per_chunk: 1500 # 회수 청크당 본문 상한(긴 조문 9k자 → 창 초과 방지)
   max_answer_tokens: 1024   # 답변 생성 토큰 상한
-  # 레이어1 최적 config(고정) — 답변모델 효과를 검색 변동에서 격리(§8.1)
+  # 최적 검색 config(고정) — 답변모델 효과를 검색 변동에서 격리
   retrieval:
     chunker: "article"
     retriever: "hybrid"

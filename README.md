@@ -5,7 +5,7 @@
 
 `최종 업데이트 2026-06-14`
 
-[개요](#개요) · [현황](#현황) · [핵심 결과](#핵심-결과) · [빠른 시작](#빠른-시작) · [벤치마크 설계](#벤치마크-설계) · [모델·서빙](#모델서빙) · [레이어2 답변 평가](#레이어2-답변-평가) · [데이터·구조](#데이터구조)
+[개요](#개요) · [현황](#현황) · [핵심 결과](#핵심-결과) · [빠른 시작](#빠른-시작) · [벤치마크 설계](#벤치마크-설계) · [모델·서빙](#모델서빙) · [답변 평가](#답변-평가) · [데이터·구조](#데이터구조)
 
 ---
 
@@ -31,7 +31,7 @@
 | 골드셋 (반자동) | ✅ 240문 (Mistral Small 4 + 일관성 필터) |
 | 검색 실험 E1·E2·E3·E5 | ✅ 결과 ↓ |
 | E6 LightRAG 그래프 | 🔄 색인·평가 진행 중 |
-| 레이어2 답변 평가 | 🟢 구현 완료, 실행 대기 |
+| 답변 평가 | 🟢 구현 완료, 실행 대기 |
 | 목적2 MCP/CLI | ⬜ 대기 |
 
 ---
@@ -112,7 +112,7 @@ EAGER=0 GPU_UTIL=0.7 scripts/serve_model.sh mistral
 python -m benchmark.lightrag_index               # 전체 색인 (가속 시 ~80분)
 python -m benchmark.lightrag_eval --modes naive local global hybrid mix
 
-# 5) 레이어2 답변 평가 (답변모델 + 독립 judge 서빙 후)
+# 5) 답변 평가 (답변모델 + 독립 judge 서빙 후)
 python -m benchmark.answer_runner --answer-model LGAI-EXAONE/EXAONE-4.0-32B \
     --judge-base-url http://localhost:8001/v1 --judge-model openai/gpt-oss-120b
 ```
@@ -141,12 +141,12 @@ python -m benchmark.answer_runner --answer-model LGAI-EXAONE/EXAONE-4.0-32B \
 | D 검색 | vector / BM25 / 하이브리드(RRF) / LightRAG 그래프 | ✅ E3 · 🔄 E6 |
 | E 질의·색인변환 | HyPE(색인측) · HyDE(질의측) | ✅ E5(HyPE) |
 | F 재순위 | bge-reranker-v2-m3 | ✅ E3 |
-| G 생성 | 컨텍스트 포맷·인용 지시 | 🟢 레이어2 |
+| G 생성 | 컨텍스트 포맷·인용 지시 | 🟢 답변 평가 |
 | H 운영 | 지연·빌드시간·비용·메모리 | ✅ timing |
 
 **메트릭** (`benchmark/eval/`)
-- 레이어1 검색 — recall@k · precision@k · MRR · nDCG@k. gold = uid 결정론 채점.
-- 레이어2 답변 — 인용정확도(자동) + judge 루브릭 5종 (↓ 레이어2 절).
+- 검색 평가 — recall@k · precision@k · MRR · nDCG@k. gold = uid 결정론 채점.
+- 답변 평가 — 인용정확도(자동) + judge 루브릭 5종 (↓ 답변 평가 절).
 
 <details>
 <summary>골드셋 방법론 근거</summary>
@@ -168,7 +168,7 @@ python -m benchmark.answer_runner --answer-model LGAI-EXAONE/EXAONE-4.0-32B \
 |---|---|---|
 | 골드셋 생성기 | Mistral Small 4 (119B) | 독립 계열, 한국어 우수(별표도 한국어 유지) |
 | judge | gpt-oss-120b | 생성기·답변모델과 다른 계열 |
-| 답변모델 (레이어2) | A.X-4.0 · Solar-Open · EXAONE-4.0 · Gemma 4 · Qwen3.6 | 사내 실사용 후보(평가 대상) |
+| 답변모델 (답변 평가) | A.X-4.0 · Solar-Open · EXAONE-4.0 · Gemma 4 · Qwen3.6 | 사내 실사용 후보(평가 대상) |
 
 서빙은 전용 venv `/home/work/kftc_model/kfinlaw-serve`(시스템 비오염)에서 `scripts/serve_model.sh {mistral|gptoss|stop}`.
 
@@ -184,11 +184,11 @@ python -m benchmark.answer_runner --answer-model LGAI-EXAONE/EXAONE-4.0-32B \
 
 ---
 
-## 레이어2 답변 평가
+## 답변 평가
 
-레이어1이 "맞는 조문을 찾았는가"라면 레이어2는 "답이 정확·충실한가". 골드셋·코퍼스·검색기를 재사용하고 생성+채점만 얹는다.
+검색 평가가 "맞는 조문을 찾았는가"라면 답변 평가는 "답이 정확·충실한가". 골드셋·코퍼스·검색기를 재사용하고 생성+채점만 얹는다.
 
-파이프라인(`benchmark/answer_runner.py`): ① 검색(레이어1 최적 config 고정) → ② 답변 생성(답변모델, 근거 번호 인용) → ③ 채점(judge + 자동 인용검증).
+파이프라인(`benchmark/answer_runner.py`): ① 검색(최적 검색 config 고정) → ② 답변 생성(답변모델, 근거 번호 인용) → ③ 채점(judge + 자동 인용검증).
 검색 config는 `config.yaml › answer_eval`에 고정해 답변모델 효과만 격리하고, `--retrieval {good,bad,none}`로 검색품질 전이·closed-book 대조를 한 러너에서 수행.
 
 **메트릭** (`benchmark/eval/answer_metrics.py`, RAGAS 정렬)
@@ -217,7 +217,7 @@ RAGAS는 RAG 평가의 사실상 표준(reference-free LLM 자동채점). 우리
 | completeness | (표준 없음, context recall 근접) | 커스텀 |
 | citation accuracy | (없음) | 조문 uid 일치, 자동·도메인 특화 |
 
-레이어1의 recall@k·nDCG는 uid 기반 결정론 채점이라 RAGAS의 LLM 판정 context precision/recall보다 객관적이다. 외부 타당성 교차검증이 필요하면 골드셋 일부에 RAGAS를 별도 비교축으로 1회 돌릴 수 있다.
+검색 평가의 recall@k·nDCG는 uid 기반 결정론 채점이라 RAGAS의 LLM 판정 context precision/recall보다 객관적이다. 외부 타당성 교차검증이 필요하면 골드셋 일부에 RAGAS를 별도 비교축으로 1회 돌릴 수 있다.
 
 #### 고유 비교 축
 1. 답변모델 5종 비교 — 동일 검색·프롬프트에서 최고 RAG 답변(사내 모델 선정 근거).
@@ -252,7 +252,7 @@ RAGAS는 RAG 평가의 사실상 표준(reference-free LLM 자동채점). 우리
 ```
 KA-013-KFinLaw-MCP/
 ├── README.md
-├── config.yaml                    # 단일 설정 출처(서빙·모델·검색·골드셋·레이어2)
+├── config.yaml                    # 단일 설정 출처(서빙·모델·검색·골드셋·답변 평가)
 ├── scripts/
 │   ├── collect_laws.py            # 법령 수집(3단계)
 │   ├── download_byeolpyo.py       # 별표 PDF 전수 다운로드(멱등)
@@ -262,10 +262,10 @@ KA-013-KFinLaw-MCP/
 │   ├── common.py                  # config 로드 + 공유 유틸·LLM 클라이언트
 │   ├── lawdoc.py · corpus.py      # 파서(조문/별표→uid) · 코퍼스 선정
 │   ├── pipeline/                  # chunkers · embedders · retrievers
-│   ├── eval/                      # retrieval_metrics(L1) · answer_metrics(L2)
+│   ├── eval/                      # retrieval_metrics(검색) · answer_metrics(답변)
 │   ├── goldset/                   # build_goldset · questions.jsonl · spotcheck
-│   ├── retrieval_runner.py        # 레이어1 검색 평가
-│   ├── answer_runner.py           # 레이어2 답변 평가
+│   ├── retrieval_runner.py        # 검색 평가
+│   ├── answer_runner.py           # 답변 평가
 │   ├── hype_index.py              # HyPE(E5)
 │   ├── lightrag_index.py · lightrag_eval.py   # LightRAG(E6)
 │   └── reports/  (gitignore)      # 실험 결과 JSON
