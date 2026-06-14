@@ -1,6 +1,6 @@
 """
 README용 figure 생성 — reports/*.json(검색·답변 평가 결과)을 읽어 PNG로.
-한글 라벨(나눔폰트), dpi 300, 제목 없음(캡션은 README에서). 산출: benchmark/figures/fig_01~07.png
+한글 라벨(나눔폰트), dpi 300, 제목 없음(캡션은 README에서). 산출: benchmark/figures/fig_00~07.png
 사용: python -m benchmark.make_figures
 """
 import json
@@ -64,6 +64,48 @@ def save(fig, name):
     fig.savefig(FIG / name, dpi=DPI, bbox_inches="tight")
     plt.close(fig)
     print("saved", FIG / name)
+
+
+# ===== 그림0. 방법론 파이프라인 (손그림 2행) =====
+def f0_pipeline():
+    import matplotlib.patches as mpatches
+    LIGHT, STAGE = "#eef2f4", "#bfe3dd"   # 일반 박스 / 단계 박스(연한 teal)
+    BW, BH = 2.7, 1.55
+    with plt.rc_context({"path.sketch": (1.6, 110, 14), "font.size": 10}):  # 손그림 wiggle
+        fig, ax = plt.subplots(figsize=(9.6, 5.4))
+        ax.set_xlim(0, 12.4)
+        ax.set_ylim(0, 7)
+        ax.axis("off")
+
+        def box(cx, cy, text, fc, fs=9.5):
+            ax.add_patch(mpatches.FancyBboxPatch(
+                (cx - BW / 2, cy - BH / 2), BW, BH,
+                boxstyle="round,pad=0.05,rounding_size=0.22",
+                linewidth=2.0, facecolor=fc, edgecolor=INK))
+            ax.text(cx, cy, text, ha="center", va="center", fontsize=fs, color=INK, zorder=5)
+
+        def arrow(p1, p2):
+            ax.annotate("", xy=p2, xytext=p1,
+                        arrowprops=dict(arrowstyle="-|>", lw=2.0, color=INK, shrinkA=3, shrinkB=3))
+
+        y1, y2 = 5.2, 1.7
+        cx = [1.7, 4.85, 8.0, 10.7]   # 행1 4칸
+        box(cx[0], y1, "법령 XML\n· 별표 PDF", LIGHT)
+        box(cx[1], y1, "코퍼스 32법령\n(약 3,251 청크)", LIGHT)
+        box(cx[2], y1, "골드셋 240문\nLLM생성 + 일관성필터", LIGHT)
+        box(cx[3], y1, "레이어1 · 검색 평가\n(청킹·임베딩·검색기\n·리랭커)", STAGE, fs=9)
+        cx2 = [10.7, 6.2, 1.7]        # 행2 (우→좌)
+        box(cx2[0], y2, "검색 지표\nrecall@k·MRR·nDCG\n(gold = uid)", LIGHT)
+        box(cx2[1], y2, "레이어2 · 답변 평가\n(답변모델 + judge\n+ 인용검증)", STAGE, fs=9)
+        box(cx2[2], y2, "답변 지표\n정확성·충실성\n완결성·인용", LIGHT)
+        for a, b in [(0, 1), (1, 2), (2, 3)]:
+            arrow((cx[a] + BW / 2, y1), (cx[b] - BW / 2, y1))
+        arrow((cx[3], y1 - BH / 2), (cx2[0], y2 + BH / 2))           # 단계 전환(아래로)
+        arrow((cx2[0] - BW / 2, y2), (cx2[1] + BW / 2, y2))
+        arrow((cx2[1] - BW / 2, y2), (cx2[2] + BW / 2, y2))
+        ax.text(cx[3] + 0.15, (y1 + y2) / 2, "최적 config\n고정", ha="left", va="center",
+                fontsize=8.5, color=AUG, style="italic")
+        save(fig, "fig_00_pipeline.png")
 
 
 # ===== F1. 검색 기법 리더보드 (recall@5) =====
@@ -252,6 +294,7 @@ def f6_answer_models():
 
 
 if __name__ == "__main__":
+    f0_pipeline()
     f1_leaderboard()
     f_chunking()
     f2_by_type()
