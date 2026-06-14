@@ -77,11 +77,13 @@ def uid_text_map():
 
 
 def format_context(chunks):
-    """회수 청크 → 번호 매긴 근거 블록 + 번호→uid 매핑."""
+    """회수 청크 → 번호 매긴 근거 블록 + 번호→uid 매핑.
+    청크당 ctx_chars_per_chunk로 절단(긴 조문이 모델 창을 초과해 gold가 잘리는 것 방지)."""
+    cap = AE["ctx_chars_per_chunk"]
     lines, idx2uids = [], {}
     for i, c in enumerate(chunks, 1):
         idx2uids[i] = list(c["source_uids"])
-        lines.append(f"[{i}] {c['text']}")
+        lines.append(f"[{i}] {c['text'][:cap]}")
     return "\n\n".join(lines), idx2uids
 
 
@@ -114,11 +116,14 @@ def run(args):
     goldset = load_jsonl(args.goldset)
     if args.limit:
         goldset = goldset[:args.limit]
-    judge_url = args.judge_base_url or DEFAULT_ENDPOINT
+    judge_url = args.judge_base_url or args.base_url
     print(f"답변모델={args.answer_model} | judge={args.judge_model} | 검색={args.retrieval}"
           f"(n_ctx={n_ctx}) | 골드셋 {len(goldset)}문")
     if args.judge_model == args.answer_model:
         print("  [경고] judge=답변모델 → self-enhancement(자기우대) 편향. 다른 계열 분리 권장(§8.4).")
+    if args.judge_base_url is None and args.judge_model != args.answer_model:
+        print(f"  [경고] judge endpoint 미지정 → 답변모델과 같은 {judge_url} 사용. "
+              "vLLM은 단일 모델만 서빙하므로 judge 호출이 실패할 수 있음. --judge-base-url로 분리 권장.")
 
     per_q, per_type, per_reg = [], defaultdict(list), defaultdict(list)
     t0 = time.time()
@@ -139,8 +144,9 @@ def run(args):
             for n in used:
                 cited_uids.update(idx2uids.get(n, []))
             m.update(AM.citation_metrics(cited_uids, q["gold_ids"]))
-        # ③-b judge 루브릭(레퍼런스 기반)
-        gold_ctx = "\n\n".join(u2t.get(g, f"(uid {g} 본문 없음)") for g in q["gold_ids"])
+        # ③-b judge 루브릭(레퍼런스 기반). gold 본문도 청크당 동일 상한으로 절단(창 초과 방지)
+        cap = AE["ctx_chars_per_chunk"]
+        gold_ctx = "\n\n".join(u2t.get(g, f"(uid {g} 본문 없음)")[:cap] for g in q["gold_ids"])
         retrieved_ctx = ctx_block
         jr = AM.judge_answer(judge_url, args.judge_model, q["question"], q["answer"],
                              gold_ctx, retrieved_ctx, answer, args.judge_reasoning_effort)
