@@ -1,0 +1,91 @@
+{
+  "config": {
+    "answer_model": "upstage/Solar-Open-100B",
+    "judge_model": "openai/gpt-oss-120b",
+    "retrieval": "good",
+    "n_context": 5
+  },
+  "n_questions": 240,
+  "overall": {
+    "cite_hit": 0.7291666666666666,
+    "faithfulness": 0.6479166666666667,
+    "correctness": 0.6354166666666666,
+    "cite_f1": 0.5233730158730159,
+    "context_utilization": 0.6572916666666667,
+    "completeness": 0.6447916666666667,
+    "relevancy": 0.7166666666666667,
+    "cite_recall": 0.6541666666666667,
+    "cite_precision": 0.5055555555555555
+  },
+  "by_type": {
+    "factoid": {
+      "cite_hit": 0.9166666666666666,
+      "faithfulness": 0.8625,
+      "correctness": 0.8666666666666667,
+      "cite_f1": 0.7133333333333333,
+      "context_utilization": 0.8875,
+      "completeness": 0.8333333333333334,
+      "relevancy": 0.9208333333333333,
+      "cite_recall": 0.9166666666666666,
+      "cite_precision": 0.6455555555555555
+    },
+    "crossref": {
+      "cite_hit": 0.5166666666666667,
+      "faithfulness": 0.5,
+      "correctness": 0.4875,
+      "cite_f1": 0.34833333333333333,
+      "context_utilization": 0.5166666666666667,
+      "completeness": 0.49166666666666664,
+      "relevancy": 0.5625,
+      "cite_recall": 0.5166666666666667,
+      "cite_precision": 0.3075
+    },
+    "byeolpyo": {
+      "cite_hit": 0.6333333333333333,
+      "faithfulness": 0.5958333333333333,
+      "correctness": 0.5708333333333333,
+      "cite_f1": 0.48666666666666664,
+      "context_utilization": 0.575,
+      "completeness": 0.6541666666666667,
+      "relevancy": 0.6833333333333333,
+      "cite_recall": 0.6333333333333333,
+      "cite_precision": 0.4408333333333333
+    },
+    "multihop": {
+      "cite_hit": 0.85,
+      "faithfulness": 0.6333333333333333,
+      "correctness": 0.6166666666666667,
+      "cite_f1": 0.5451587301587302,
+      "context_utilization": 0.65,
+      "completeness": 0.6,
+      "relevancy": 0.7,
+      "cite_recall": 0.55,
+      "cite_precision": 0.6283333333333334
+    }
+  },
+  "by_register": {
+    "formal": {
+      "cite_hit": 0.7142857142857143,
+      "faithfulness": 0.6273809523809524,
+      "correctness": 0.611904761904762,
+      "cite_f1": 0.5102040816326531,
+      "context_utilization": 0.6333333333333333,
+      "completeness": 0.6238095238095238,
+      "relevancy": 0.6916666666666667,
+      "cite_recall": 0.6285714285714286,
+      "cite_precision": 0.49936507936507935
+    },
+    "colloquial": {
+      "cite_hit": 0.8333333333333334,
+      "faithfulness": 0.7916666666666666,
+      "correctness": 0.8,
+      "cite_f1": 0.6155555555555555,
+      "context_utilization": 0.825,
+      "completeness": 0.7916666666666666,
+      "relevancy": 0.8916666666666667,
+      "cite_recall": 0.8333333333333334,
+      "cite_precision": 0.5488888888888889
+    }
+  },
+  "timing_s": 331.5
+}
