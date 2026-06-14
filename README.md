@@ -45,16 +45,16 @@
 | 골드셋 (반자동) | ✅ | **240문** (Mistral Small 4 생성 + 일관성 필터) |
 | 벤치마크 하니스 | ✅ | 청커·임베더·검색기 플러그인 + 메트릭 + 러너 |
 | **1차 검색 실험** (E1·E2·E3·E5) | ✅ | 청킹·임베딩·하이브리드·리랭커·HyPE (결과 §3) |
-| **E6 LightRAG 그래프** | ⏸ 보류 | 통합·검증 완료, **전체 색인은 학습 GPU 종료 후 재개** |
-| 레이어2 답변 평가 | 🟢 구현(실행 대기) | 아래 §8 (`answer_runner.py`·`answer_metrics.py` 완료, 답변모델 서빙 후 실행) |
+| **E6 LightRAG 그래프** | 🔄 진행 중 | 통합·스모크 검증 완료, 전체 색인·평가 실행 중 |
+| 레이어2 답변 평가 | 🟢 구현(실행 대기) | §8 (`answer_runner.py`·`answer_metrics.py` 완료, 답변모델 서빙 후 실행) |
 | 목적2 MCP/CLI | ⬜ 대기 | 하니스 완료 후 |
 
 ---
 
 ## 3. 🏆 핵심 결과 — 1차 검색 실험
 
-> **실험 코드**: 하나의 변수만 바꿔 비교(§6 축 A~H에 대응).
-> **E1** 청킹 · **E2** 임베딩 · **E3** 검색기(하이브리드·리랭커) · **E4** 별표 소스(미실행) · **E5** HyPE · **E6** LightRAG 그래프(색인 보류).
+> **실험 코드**(일변수 격리, §6 축 A~H 대응):
+> **E1** 청킹 · **E2** 임베딩 · **E3** 검색기+리랭커 · **E4** 별표 소스(미실행) · **E5** HyPE · **E6** LightRAG 그래프(진행 중).
 
 **셋업**: 코퍼스 32법령(청크 ~3,251), 골드셋 240문(factoid/crossref/byeolpyo/multihop 각 60),
 메트릭 recall@k·MRR·nDCG@10 (질문유형별·register(격식체/구어체)별 분해, gold = 조문/별표 uid). 상세 설계는 §6.
@@ -75,7 +75,7 @@
 - **E2 임베딩**: **KURE-v1 > KoE5 > BGE-M3** (한국어 특화 우위).
 - **E3 하이브리드+리랭커** 🏆: **최고 구성**. 리랭커가 단일 최대 레버(recall@1·MRR·nDCG 대폭↑). crossref 0.48→0.73.
 - **E5 HyPE** ❌: **부정 결과(도움 안 됨)**. HyPE(0.675) < 원문(0.767). 가설질문이 노이즈, crossref 붕괴.
-- **E6 LightRAG**: 통합 검증 완료(한국어 엔티티·교차참조 그래프 포착). 전체 색인 보류.
+- **E6 LightRAG**: 스모크 검증 완료(한국어 엔티티·교차참조 그래프 포착). 전체 색인·평가 진행 중.
 
 ### 검색기·유형 상호작용 (조청킹)
 | 유형 | BM25 | 벡터(KURE) | 비고 |
@@ -123,7 +123,7 @@ KA-013-KFinLaw-MCP/
 │   ├── retrieval_runner.py                # 레이어1 검색 평가 config→리포트
 │   ├── answer_runner.py                   # 레이어2 답변 생성 평가(검색→생성→채점)
 │   ├── hype_index.py · hype_cache.json    # HyPE(E5)
-│   ├── lightrag_index.py · lightrag_eval.py  # LightRAG(E6, 색인 보류)
+│   ├── lightrag_index.py · lightrag_eval.py  # LightRAG(E6, 진행 중)
 │   └── reports/   (gitignore)             # 실험 결과 JSON
 ├── serving/
 │   └── requirements.venv.lock / .full.lock  # 작동 버전 박제
@@ -154,7 +154,7 @@ KA-013-KFinLaw-MCP/
 | A 파싱 | 별표소스(kordoc-md/평문/MinerU)·노이즈제거 | 부분 |
 | B 청킹 | 조/항/고정토큰/계층(parent-doc)·브레드크럼 | ✅ E1 |
 | C 임베딩 | KURE-v1/BGE-M3/KoE5·하이브리드 | ✅ E2 |
-| D 검색 | vector/BM25/**하이브리드(RRF)**/LightRAG그래프 | ✅ E3, ⏸ E6 |
+| D 검색 | vector/BM25/**하이브리드(RRF)**/LightRAG그래프 | ✅ E3, 🔄 E6 |
 | E 질의/색인변환 | **HyPE**(색인측)·HyDE(질의측) | ✅ E5(HyPE) |
 | F 재순위 | bge-reranker-v2-m3 | ✅ E3 |
 | G 생성 | 컨텍스트포맷·인용지시 | 🟢 레이어2 |
@@ -194,7 +194,8 @@ KA-013-KFinLaw-MCP/
 - **서빙**: `scripts/serve_model.sh {mistral|gptoss|stop}` (격리+공식 플래그+잔여워커/shm 정리 자동).
   - Mistral 공식 플래그: `--quantization fp8 --reasoning-parser mistral --tool-call-parser mistral`
     `--enable-auto-tool-choice --limit-mm-per-prompt '{"image":0}'`, 요청 시 `reasoning_effort="none"`.
-- **학습 GPU 공존**: FP8 + `--gpu-memory-utilization 0.26`(가장 빡빡한 GPU 여유에 맞춤) + ctx 4096.
+- **GPU 메모리**: FP8 + ctx 4096 + `--gpu-memory-utilization`(학습 공존 시 0.26 / GPU 전용 시 `GPU_UTIL=0.7`로 상향).
+  디코딩은 `EAGER=0`(CUDA graph)으로 대량 색인 가속 가능, 기본 `EAGER=1`(enforce-eager, 메모리 절약·재현).
 
 ---
 
@@ -281,8 +282,9 @@ python -m benchmark.retrieval_runner --chunker article --retriever hybrid --rera
     --embedder kure-v1 --byeolpyo md          # 최적 구성(recall@5 0.860)
 python -m benchmark.retrieval_runner --chunker article --hype --embedder kure-v1 --byeolpyo md  # E5 HyPE
 
-# E6 LightRAG (학습 GPU 종료 후)
-python -m benchmark.lightrag_index            # 전체 색인 ~20-40분
+# E6 LightRAG (GPU 전용 권장 — CUDA graph + 동시성↑로 가속)
+EAGER=0 GPU_UTIL=0.7 scripts/serve_model.sh mistral
+python -m benchmark.lightrag_index            # 전체 색인 (가속 시 ~80분)
 python -m benchmark.lightrag_eval --modes naive local global hybrid mix
 
 # 레이어2 답변 생성 평가 (답변모델 서빙 + 독립 judge 후)
