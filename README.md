@@ -123,7 +123,7 @@
 | LightRAG 그래프 (mix 모드) | 0.665 | 0.606 | 0.616 |
 | 조청킹 + 벡터 + HyDE | 0.652 | 0.558 | 0.572 |
 
-![검색 기법 리더보드](benchmark/figures/fig_01_leaderboard.png)
+<img src="benchmark/figures/fig_01_leaderboard.png" width="700" alt="검색 기법 리더보드">
 > **그림 1.** 검색 기법 리더보드(recall@5). 하이브리드+리랭커(teal)가 최적이고, 정교한 증강 기법(HyPE·HyDE·LightRAG, 적색)은 모두 단순 baseline 아래.
 
 #### 3.1.2 실험별 결과
@@ -201,7 +201,7 @@ LightRAG 모드별 (recall@5 / MRR / nDCG@10)
 | Qwen/Qwen3.6-27B | 0.64 | 0.65 | 0.70 | 0.62 | 0.65 | 0.63 |
 | upstage/Solar-Open-100B (96B) | 0.64 | 0.65 | 0.72 | 0.64 | 0.66 | 0.52 |
 
-![답변모델 비교](benchmark/figures/fig_07_answer_models.png)
+<img src="benchmark/figures/fig_07_answer_models.png" width="700" alt="답변모델 비교">
 > **그림 7.** 답변모델 비교. **gemma-4-31B가 전 메트릭 최상위**이고 A.X-4.0이 근접. **31B가 96B(Solar)·67B(A.X)를 능가** — 모델 크기보다 도메인 적합성이 중요(검색 실험의 "정교≠우위"와 같은 교훈).
 
 <details>
