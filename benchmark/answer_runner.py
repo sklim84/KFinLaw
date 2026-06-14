@@ -18,6 +18,7 @@ import json
 import argparse
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from benchmark.pipeline.chunkers import build_chunks
@@ -120,38 +121,49 @@ def run(args):
         print(f"  [경고] judge endpoint 미지정 → 답변모델과 같은 {judge_url} 사용. "
               "vLLM은 단일 모델만 서빙하므로 judge 호출이 실패할 수 있음. --judge-base-url로 분리 권장.")
 
-    per_q, per_type, per_reg = [], defaultdict(list), defaultdict(list)
+    cap = AE["ctx_chars_per_chunk"]
     t0 = time.time()
-    for i, q in enumerate(goldset, 1):
-        # ① 검색 → 컨텍스트
+
+    # ① 검색(순차) — GPU 리트리버는 단일 스레드로. 질문별 컨텍스트·gold본문 준비.
+    prepared = []
+    for q in goldset:
         if retr is None:
             ctx_block, idx2uids = None, {}
         else:
             chunks = [c for c, _ in retr.search(q["question"], top_k=n_ctx)]
             ctx_block, idx2uids = format_context(chunks)
-        # ② 답변 생성
+        gold_ctx = "\n\n".join(u2t.get(g, f"(uid {g} 본문 없음)")[:cap] for g in q["gold_ids"])
+        prepared.append((q, ctx_block, idx2uids, gold_ctx))
+    print(f"  검색 완료 {len(prepared)}문 ({time.time()-t0:.0f}s) → 답변·judge 동시처리(workers={args.workers})")
+
+    # ②③ 답변 생성 + 채점(동시) — LLM 호출이 HTTP라 병렬 효과 큼
+    done = {"n": 0}
+
+    def work(item):
+        q, ctx_block, idx2uids, gold_ctx = item
         answer, used = generate_answer(args.base_url, args.answer_model, q["question"],
                                        ctx_block, AE["max_answer_tokens"], args.reasoning_effort)
-        # ③-a 인용 정확도(자동) — 컨텍스트 있을 때만
         m = {}
-        if retr is not None:
-            cited_uids = set()
+        if retr is not None:  # 인용 정확도(자동)
+            cited = set()
             for n in used:
-                cited_uids.update(idx2uids.get(n, []))
-            m.update(AM.citation_metrics(cited_uids, q["gold_ids"]))
-        # ③-b judge 루브릭(레퍼런스 기반). gold 본문도 청크당 동일 상한으로 절단(창 초과 방지)
-        cap = AE["ctx_chars_per_chunk"]
-        gold_ctx = "\n\n".join(u2t.get(g, f"(uid {g} 본문 없음)")[:cap] for g in q["gold_ids"])
-        retrieved_ctx = ctx_block
+                cited.update(idx2uids.get(n, []))
+            m.update(AM.citation_metrics(cited, q["gold_ids"]))
         jr = AM.judge_answer(judge_url, args.judge_model, q["question"], q["answer"],
-                             gold_ctx, retrieved_ctx, answer, args.judge_reasoning_effort)
+                             gold_ctx, ctx_block, answer, args.judge_reasoning_effort)
         if jr:
             m.update(jr)
-        per_q.append(m)
-        per_type[q["type"]].append(m)
-        per_reg[q.get("register", "formal")].append(m)
-        if i % 10 == 0:
-            print(f"  {i}/{len(goldset)} | {(time.time()-t0):.0f}s")
+        done["n"] += 1
+        if done["n"] % 20 == 0:
+            print(f"  {done['n']}/{len(prepared)} | {(time.time()-t0):.0f}s")
+        return q, m
+
+    per_q, per_type, per_reg = [], defaultdict(list), defaultdict(list)
+    with ThreadPoolExecutor(max_workers=args.workers) as ex:
+        for q, m in ex.map(work, prepared):
+            per_q.append(m)
+            per_type[q["type"]].append(m)
+            per_reg[q.get("register", "formal")].append(m)
 
     result = {
         "config": {"answer_model": args.answer_model, "judge_model": args.judge_model,
@@ -201,6 +213,8 @@ def main():
                     help="good=하이브리드+리랭커 / bad=BM25 top-1 / none=closed-book")
     ap.add_argument("--reasoning-effort", default=None, help="답변모델 추론수준(예: none)")
     ap.add_argument("--judge-reasoning-effort", default=None)
+    ap.add_argument("--workers", type=int, default=CONFIG["hype"]["workers"],
+                    help="답변·judge 동시 호출 수(vLLM 배칭)")
     ap.add_argument("--limit", type=int, default=0, help="스모크: 앞 N문만")
     ap.add_argument("--goldset", default=str(HERE / "goldset" / "questions.jsonl"))
     ap.add_argument("--out", default=str(HERE / "reports"))
