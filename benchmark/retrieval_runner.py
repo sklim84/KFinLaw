@@ -1,10 +1,11 @@
 """
-벤치마크 러너 — config(파서·청커·임베더·검색기) 1개 = 1 실험
-config 순회 → 청킹 → 인덱싱 → 골드셋 질의 → 검색 메트릭 → 결과 JSON + 리포트 표
+레이어1 검색 평가 러너 — config(파서·청커·임베더·검색기) 1개 = 1 실험
+청킹 → 인덱싱 → 골드셋 질의 → 검색 메트릭(retrieval_metrics) → 결과 JSON + 리포트 표.
+레이어2 답변 평가는 answer_runner.py (쌍 구조: retrieval_* ↔ answer_*).
 
 사용:
-  python benchmark/runner.py --chunker article --retriever bm25 --byeolpyo md
-  python benchmark/runner.py --chunker article --retriever hybrid --rerank --embedder kure-v1 --byeolpyo md
+  python benchmark/retrieval_runner.py --chunker article --retriever bm25 --byeolpyo md
+  python benchmark/retrieval_runner.py --chunker article --retriever hybrid --rerank --embedder kure-v1 --byeolpyo md
 """
 import sys
 import json

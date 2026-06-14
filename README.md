@@ -120,7 +120,7 @@ KA-013-KFinLaw-MCP/
 │   │   └── spotcheck.py                    # 생성기 후보 비교
 │   ├── pipeline/  chunkers · embedders · retrievers
 │   ├── eval/      retrieval_metrics · answer_metrics   # 레이어1 검색 · 레이어2 답변
-│   ├── runner.py                          # 레이어1 검색 평가 config→리포트
+│   ├── retrieval_runner.py                # 레이어1 검색 평가 config→리포트
 │   ├── answer_runner.py                   # 레이어2 답변 생성 평가(검색→생성→채점)
 │   ├── hype_index.py · hype_cache.json    # HyPE(E5)
 │   ├── lightrag_index.py · lightrag_eval.py  # LightRAG(E6, 색인 보류)
@@ -274,9 +274,9 @@ python benchmark/goldset/build_goldset.py --model mistralai/Mistral-Small-4-119B
     --reasoning-effort none --no-judge        # 골드셋 240문(일관성 필터)
 
 # 1차 검색 실험
-python benchmark/runner.py --chunker article --retriever hybrid --rerank \
+python benchmark/retrieval_runner.py --chunker article --retriever hybrid --rerank \
     --embedder kure-v1 --byeolpyo md          # 최적 구성(recall@5 0.860)
-python benchmark/runner.py --chunker article --hype --embedder kure-v1 --byeolpyo md  # E5 HyPE
+python benchmark/retrieval_runner.py --chunker article --hype --embedder kure-v1 --byeolpyo md  # E5 HyPE
 
 # E6 LightRAG (학습 GPU 종료 후)
 python benchmark/lightrag_index.py            # 전체 색인 ~20-40분

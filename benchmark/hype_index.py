@@ -9,17 +9,18 @@ HyPE (Hypothetical Prompt Embeddings) 색인 생성
     --reasoning-effort none --n 5 --workers 16
 산출: benchmark/hype_cache.json  {chunk_id: ["질문1", ...]}
 """
-import json, re, argparse, sys, time
+import json
+import argparse
+import sys
+import time
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / "pipeline"))
-sys.path.insert(0, str(HERE / "goldset"))
 from chunkers import build_chunks  # noqa: E402
-import build_goldset as BG          # noqa: E402
-from common import CONFIG, CTX_CHARS, DEFAULT_ENDPOINT, load_json  # noqa: E402
+from common import CONFIG, CTX_CHARS, DEFAULT_ENDPOINT, load_json, llm_chat, parse_json  # noqa: E402
 
 CORPUS = load_json(HERE / "corpus_ids.json")
 OUT = HERE / "hype_cache.json"
@@ -33,8 +34,8 @@ HYPE_SYS = (
 def gen_questions(base_url, model, text, n, reasoning_effort):
     sys_p = HYPE_SYS.format(n=n)
     user = f"[법령 텍스트]\n{text[:CTX_CHARS]}\n\n이 텍스트로 답할 수 있는 질문 {n}개를 JSON으로 생성하라."
-    out = BG.chat(base_url, model, sys_p, user, temperature=0.0, reasoning_effort=reasoning_effort)
-    j = BG.parse_json(out)
+    out = llm_chat(base_url, model, sys_p, user, temperature=0.0, reasoning_effort=reasoning_effort)
+    j = parse_json(out)
     if not j:
         return []
     qs = j.get("questions", [])
