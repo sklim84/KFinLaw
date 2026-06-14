@@ -7,10 +7,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VLLM=/home/work/kftc_model/kfinlaw-serve/bin/vllm
 PY=/home/work/kftc_model/_bfcl_env/bin/python
 LOG="$ROOT/tests/vllm/answer.log"
+CACHE="$ROOT/benchmark/answer_ctx_cache.json"   # 검색 컨텍스트 1회 생성 → 전 모델 공유
 
-# "모델:gpu_util" — 큰 모델은 util 상향(KV 확보)
+# "모델:gpu_util" — 큰 모델은 util 상향(KV 확보). (EXAONE은 이미 완료되어 제외)
 MODELS=(
-  "LGAI-EXAONE/EXAONE-4.0-32B:0.6"
   "Qwen/Qwen3.6-27B:0.6"
   "google/gemma-4-31B-it:0.6"
   "skt/A.X-4.0:0.8"
@@ -40,6 +40,13 @@ wait_ready() {  # 8000 준비 폴링(최대 ~13분)
 }
 
 echo "=== 답변 평가 매트릭스 시작: ${#MODELS[@]}개 모델 ==="
+# 검색 컨텍스트 1회 사전생성(모델 독립) → 이후 전 모델이 캐시 로드(검색 생략, GPU0 병목 제거)
+if [ ! -f "$CACHE" ]; then
+  echo "--- 컨텍스트 캐시 사전생성 ---"; date "+%H:%M:%S"
+  "$PY" -m benchmark.answer_runner --retrieval good --context-cache "$CACHE" --build-context-only \
+    2>&1 | grep -vE "^INFO|nano-vectordb|^WARNING|Batches"
+fi
+
 for entry in "${MODELS[@]}"; do
   model="${entry%:*}"; util="${entry##*:}"
   echo ""; echo "########## $model (util=$util) ##########"; date "+%H:%M:%S"
@@ -53,7 +60,7 @@ for entry in "${MODELS[@]}"; do
   "$PY" -m benchmark.answer_runner \
     --base-url http://localhost:8000/v1 --answer-model "$model" \
     --judge-base-url http://localhost:8001/v1 --judge-model openai/gpt-oss-120b \
-    --judge-reasoning-effort low --workers 16 --retrieval good \
+    --judge-reasoning-effort low --workers 16 --retrieval good --context-cache "$CACHE" \
     2>&1 | grep -vE "^INFO|nano-vectordb|^WARNING|Batches"
 done
 stop_answer

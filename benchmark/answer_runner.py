@@ -106,25 +106,8 @@ def _as_int(x):
     return int(f) if f == int(f) else None
 
 
-def run(args):
-    retr, n_ctx = build_context_retriever(args.retrieval, args.embedder)
-    u2t = uid_text_map()
-    goldset = load_jsonl(args.goldset)
-    if args.limit:
-        goldset = goldset[:args.limit]
-    judge_url = args.judge_base_url or args.base_url
-    print(f"답변모델={args.answer_model} | judge={args.judge_model} | 검색={args.retrieval}"
-          f"(n_ctx={n_ctx}) | 골드셋 {len(goldset)}문")
-    if args.judge_model == args.answer_model:
-        print("  [경고] judge=답변모델 → self-enhancement(자기우대) 편향. 다른 계열 분리 권장.")
-    if args.judge_base_url is None and args.judge_model != args.answer_model:
-        print(f"  [경고] judge endpoint 미지정 → 답변모델과 같은 {judge_url} 사용. "
-              "vLLM은 단일 모델만 서빙하므로 judge 호출이 실패할 수 있음. --judge-base-url로 분리 권장.")
-
-    cap = AE["ctx_chars_per_chunk"]
-    t0 = time.time()
-
-    # ① 검색(순차) — GPU 리트리버는 단일 스레드로. 질문별 컨텍스트·gold본문 준비.
+def build_prepared(retr, n_ctx, goldset, u2t, cap):
+    """질문별 (q, ctx_block, idx2uids, gold_ctx) 준비. 검색은 모델 독립이라 1회면 충분."""
     prepared = []
     for q in goldset:
         if retr is None:
@@ -134,9 +117,57 @@ def run(args):
             ctx_block, idx2uids = format_context(chunks)
         gold_ctx = "\n\n".join(u2t.get(g, f"(uid {g} 본문 없음)")[:cap] for g in q["gold_ids"])
         prepared.append((q, ctx_block, idx2uids, gold_ctx))
-    print(f"  검색 완료 {len(prepared)}문 ({time.time()-t0:.0f}s) → 답변·judge 동시처리(workers={args.workers})")
+    return prepared
 
-    # ②③ 답변 생성 + 채점(동시) — LLM 호출이 HTTP라 병렬 효과 큼
+
+def save_ctx_cache(path, prepared, n_ctx, retrieval):
+    items = {q["id"]: {"ctx_block": cb, "idx2uids": {str(k): v for k, v in iu.items()},
+                       "gold_ctx": gc} for (q, cb, iu, gc) in prepared}
+    json.dump({"retrieval": retrieval, "n_ctx": n_ctx, "items": items},
+              open(path, "w", encoding="utf-8"), ensure_ascii=False)
+
+
+def load_ctx_cache(path, goldset):
+    d = load_json(path)
+    prepared = [(q, (it := d["items"][q["id"]])["ctx_block"],
+                 {int(k): v for k, v in it["idx2uids"].items()}, it["gold_ctx"])
+                for q in goldset]
+    return prepared, d["n_ctx"]
+
+
+def run(args):
+    goldset = load_jsonl(args.goldset)
+    if args.limit:
+        goldset = goldset[:args.limit]
+    cap = AE["ctx_chars_per_chunk"]
+    cache = Path(args.context_cache) if args.context_cache else None
+
+    # 컨텍스트: 캐시 있으면 로드(검색 생략·GPU 리트리버 불필요), 없으면 검색 후 저장
+    if cache and cache.exists():
+        prepared, n_ctx = load_ctx_cache(cache, goldset)
+        print(f"  컨텍스트 캐시 로드: {cache.name} ({len(prepared)}문, n_ctx={n_ctx}) — 검색 생략")
+    else:
+        retr, n_ctx = build_context_retriever(args.retrieval, args.embedder)
+        t_r = time.time()
+        prepared = build_prepared(retr, n_ctx, goldset, uid_text_map(), cap)
+        print(f"  검색 완료 {len(prepared)}문 ({time.time()-t_r:.0f}s)")
+        if cache:
+            save_ctx_cache(cache, prepared, n_ctx, args.retrieval)
+            print(f"  컨텍스트 캐시 저장: {cache}")
+    if args.build_context_only:
+        print("  (build-context-only) 캐시만 생성하고 종료")
+        return None
+
+    judge_url = args.judge_base_url or args.base_url
+    has_ctx = args.retrieval != "none"
+    print(f"답변모델={args.answer_model} | judge={args.judge_model} | 검색={args.retrieval}"
+          f"(n_ctx={n_ctx}) | 골드셋 {len(goldset)}문 | workers={args.workers}")
+    if args.judge_model == args.answer_model:
+        print("  [경고] judge=답변모델 → self-enhancement(자기우대) 편향. 다른 계열 분리 권장.")
+    if args.judge_base_url is None and args.judge_model != args.answer_model:
+        print(f"  [경고] judge endpoint 미지정 → 답변모델과 같은 {judge_url} 사용. --judge-base-url 분리 권장.")
+
+    t0 = time.time()
     done = {"n": 0}
 
     def work(item):
@@ -144,7 +175,7 @@ def run(args):
         answer, used = generate_answer(args.base_url, args.answer_model, q["question"],
                                        ctx_block, AE["max_answer_tokens"], args.reasoning_effort)
         m = {}
-        if retr is not None:  # 인용 정확도(자동)
+        if has_ctx:  # 인용 정확도(자동)
             cited = set()
             for n in used:
                 cited.update(idx2uids.get(n, []))
@@ -216,11 +247,17 @@ def main():
     ap.add_argument("--workers", type=int, default=CONFIG["hype"]["workers"],
                     help="답변·judge 동시 호출 수(vLLM 배칭)")
     ap.add_argument("--limit", type=int, default=0, help="스모크: 앞 N문만")
+    ap.add_argument("--context-cache", default=None,
+                    help="검색 컨텍스트 캐시 경로. 있으면 로드(검색 생략), 없으면 검색 후 저장. 모델 독립이라 전 모델 공유")
+    ap.add_argument("--build-context-only", action="store_true",
+                    help="컨텍스트 캐시만 생성하고 종료(답변모델 불필요)")
     ap.add_argument("--goldset", default=str(HERE / "goldset" / "questions.jsonl"))
     ap.add_argument("--out", default=str(HERE / "reports"))
     args = ap.parse_args()
 
     result = run(args)
+    if result is None:  # build-context-only
+        return
     print_report(result)
     Path(args.out).mkdir(parents=True, exist_ok=True)
     safe = args.answer_model.replace("/", "_")
