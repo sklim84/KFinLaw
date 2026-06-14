@@ -65,38 +65,29 @@
 
 </details>
 
-**골드셋** — **240문**, 반자동. 코퍼스 ~3,251 청크 위에서 평가.
-- Mistral Small 4로 조문/별표에서 Q&A 생성 → 일관성(round-trip BM25) 필터로 채택.
-- 유형 4종 균형(각 60): factoid · crossref · byeolpyo · multihop. gold = 조문/별표 uid.
-- factoid는 격식↔구어 30쌍(공통 gold·pair_id) → 어휘격차 짝지어 측정.
-- 무결성: gold_id 300개 전부 코퍼스 존재, 멀티홉 60문은 2-gold(본법+시행령).
+**골드셋** — 코퍼스 약 3,251 청크 위에서 평가할 **240문**을 반자동으로 구축했다. Mistral Small 4가 각 조문·별표에서 Q&A를 생성하고, 생성된 질문을 다시 검색기에 넣어 원본 조문이 회수되는지 보는 일관성(round-trip BM25) 필터로 걸러 채택한다. 질문은 factoid·crossref·byeolpyo·multihop 네 유형을 각 60문씩 균형 있게 두었고, 정답 근거(gold)는 조문·별표 uid로 고정했다. factoid는 같은 사실을 격식체와 구어체로 묻는 30쌍을 두어 어휘격차를 짝지어 측정하며, 멀티홉 60문은 본법과 시행령을 함께 짚는 2-gold다. gold_id 300개가 모두 코퍼스에 존재함을 확인했다.
 
 <details>
 <summary>골드셋 방법론 근거</summary>
 
-- 검색 골드셋은 오픈웨이트 생성기로 충분(InPars, Bonifacio 2022; InPars-v2, Jeronymo 2023) — gold이 ID라 LLM-judge 편향과 무관.
-- 생성기·judge·답변모델을 다른 계열로 분리해 오염(preference leakage) 회피.
-- 핵심 품질장치는 일관성 필터(Promptagator, Dai 2023) — 생성 질문을 검색기에 넣어 원본 조문이 회수되는 질문만 채택.
-- BM25는 구어체를 과소평가할 수 있어, factoid 쌍은 격식체로 일관성 검사하고 구어체는 같은 정답을 공유하므로 함께 채택.
+검색 골드셋은 정답이 ID라 LLM-judge 편향과 무관하므로 오픈웨이트 생성기로 만들어도 충분하다(InPars[[12]](#ref12); InPars-v2[[13]](#ref13)). 다만 생성기·judge·답변모델은 서로 다른 계열로 분리해 선호 누출(preference leakage)을 피했고, 품질의 핵심 장치는 일관성 필터(Promptagator[[14]](#ref14))다 — 생성된 질문을 검색기에 다시 넣어 원본 조문이 회수되는 질문만 채택한다. 한 가지 주의로, BM25가 구어체를 과소평가할 수 있어 factoid 쌍은 격식체로 일관성을 검사하되 같은 정답을 공유하는 구어체도 함께 채택했다.
 
 </details>
 
 **비교 축** — 일변수 격리(OFAT), 질문유형·register(격식/구어)별 분해.
 
-| 축 | 변수 | 상태 |
+| 축 | 변수 | 대응 실험 |
 |---|---|---|
-| A 파싱 | 별표소스(kordoc-md/평문/MinerU)·노이즈 제거 | ✅ E4(md vs 평문) · MinerU 미연결 |
-| B 청킹 | 조/항/고정토큰/계층(parent-doc)·브레드크럼 | ✅ E1 |
-| C 임베딩 | KURE-v1 / BGE-M3(Chen 2024) / KoE5(E5, Wang 2022) | ✅ E2 |
-| D 검색 | BM25(Robertson 2009) / dense(Karpukhin 2020) / 하이브리드(RRF, Cormack 2009) / LightRAG(Guo 2024) | ✅ E3 · E6 |
-| E 질의·색인변환 | HyPE 색인측(Vake 2025) · HyDE 질의측(Gao 2023) | ✅ E5 · E7 |
-| F 재순위 | bge-reranker-v2-m3 | ✅ E3 |
-| G 생성 | 컨텍스트 포맷·인용 지시 | ✅ 답변 평가 |
-| H 운영 | 지연·빌드시간·비용·메모리 | ✅ timing |
+| A 파싱 | 별표소스(kordoc-md/평문/MinerU)·노이즈 제거 | E4 (md vs 평문) · MinerU 미연결 |
+| B 청킹 | 조/항/고정토큰/계층(parent-doc)·브레드크럼 | E1 |
+| C 임베딩 | KURE-v1[[8]](#ref8) / BGE-M3[[7]](#ref7) / KoE5[[6]](#ref6) | E2 |
+| D 검색 | BM25[[2]](#ref2) / dense[[3]](#ref3) / 하이브리드(RRF)[[4]](#ref4) / LightRAG[[11]](#ref11) | E3 · E6 |
+| E 질의·색인변환 | HyPE 색인측[[10]](#ref10) · HyDE 질의측[[9]](#ref9) | E5 · E7 |
+| F 재순위 | bge-reranker-v2-m3 | E3 |
+| G 생성 | 컨텍스트 포맷·인용 지시 | 답변 평가(레이어2) |
+| H 운영 | 지연·빌드시간·비용·메모리 | timing |
 
-**메트릭** (`benchmark/eval/`) — 검색은 **결정론**, 답변은 **judge + 자동 인용검증**.
-- 검색(`retrieval_metrics`): recall@k · precision@k · MRR · nDCG@k(Järvelin & Kekäläinen 2002). gold = uid로 결정론 채점.
-- 답변(`answer_metrics`): 인용정확도(자동) + judge 루브릭 5종(상세는 [결과 3.2](#32-답변-평가-레이어2)). 본문 인용은 (저자 연도) — 출처는 [References](#references).
+**메트릭**은 `benchmark/eval/`에 둔다. 검색 평가(`retrieval_metrics`)는 회수된 청크의 uid를 gold uid와 대조해 recall@k · precision@k · MRR · nDCG@k[[15]](#ref15)를 **결정론적으로** 계산하므로 LLM 판정이 개입하지 않는다. 답변 평가(`answer_metrics`)는 인용 정확도를 자동으로 검증하고 나머지 다섯 항목은 judge 루브릭으로 채점하는데, 자세한 정의와 결과는 [결과 3.2](#32-답변-평가-레이어2)에서 다룬다.
 
 ---
 
@@ -131,11 +122,11 @@
 |---|---|
 | E1 청킹 | 조(條) 단위가 BM25·벡터 양쪽 최고 (fixed는 벡터에 불리, parent-doc는 벡터 랭킹 개선) |
 | E2 임베딩 | KURE-v1 > KoE5 > BGE-M3 (한국어 특화 우위) |
-| E3 검색기 🏆 | 하이브리드(RRF, Cormack 2009)+리랭커(Nogueira & Cho 2019)가 최적. 리랭커가 단일 최대 레버 — crossref 0.48 → 0.73 |
+| E3 검색기 🏆 | 하이브리드(RRF)[[4]](#ref4)+리랭커[[5]](#ref5)가 최적. 리랭커가 단일 최대 레버 — crossref 0.48 → 0.73 |
 | E4 별표소스 | kordoc-md vs 평문(BM25): 별표 recall@5 **0.950 vs 0.900** — 표구조 보존이 +5pp. 단 MRR·nDCG는 동급이라 평문도 경쟁력 |
-| E5 HyPE ❌ | 부정 결과: 0.721 < 원문 0.767 (가설질문이 노이즈, crossref 0.35로 붕괴). HyPE=Vake et al. 2025 |
-| E6 LightRAG ❌ | 그래프 RAG(Guo et al. 2024)가 하이브리드+리랭커(0.860)에 크게 미달. 최고 naive(0.738) < 단일 벡터(0.767), 그래프 모드는 naive보다 낮음 |
-| E7 HyDE ❌ | 부정 결과: 질의측 증강(질문→가설답변 임베딩, Gao et al. 2023)이 오히려 악화. vector 0.767→0.652(−11.5pp), 하이브리드+리랭커 0.860→0.812(−4.8pp) |
+| E5 HyPE ❌ | 부정 결과: 0.721 < 원문 0.767 (가설질문이 노이즈, crossref 0.35로 붕괴). HyPE[[10]](#ref10) |
+| E6 LightRAG ❌ | 그래프 RAG[[11]](#ref11)가 하이브리드+리랭커(0.860)에 크게 미달. 최고 naive(0.738) < 단일 벡터(0.767), 그래프 모드는 naive보다 낮음 |
+| E7 HyDE ❌ | 부정 결과: 질의측 증강(질문→가설답변 임베딩)[[9]](#ref9)이 오히려 악화. vector 0.767→0.652(−11.5pp), 하이브리드+리랭커 0.860→0.812(−4.8pp) |
 
 | | |
 |---|---|
@@ -201,7 +192,7 @@ LightRAG (E6) 모드별 (recall@5 / MRR / nDCG@10)
 <summary>RAGAS 대응 · 고유 비교 축 · 엄밀성</summary>
 
 #### RAGAS 대응 (정렬했으나 라이브러리 비채택)
-RAGAS는 RAG 평가의 사실상 표준(reference-free LLM 자동채점). 우리 메트릭은 그 분류에 의도적으로 정렬하되, gold(정답·정답조문 uid)를 보유해 레퍼런스 기반으로 더 엄밀히 채점하고 judge 계열을 강제 분리하며 조문 uid 인용검증·한국어 프롬프트를 직접 통제하기 위해 라이브러리는 쓰지 않고 직접 구현했다.
+RAGAS[[16]](#ref16)는 RAG 평가의 사실상 표준(reference-free LLM 자동채점). 우리 메트릭은 그 분류에 의도적으로 정렬하되, gold(정답·정답조문 uid)를 보유해 레퍼런스 기반으로 더 엄밀히 채점하고 judge 계열을 강제 분리하며 조문 uid 인용검증·한국어 프롬프트를 직접 통제하기 위해 라이브러리는 쓰지 않고 직접 구현했다.
 
 | 우리(`answer_metrics`) | RAGAS | 차이 |
 |---|---|---|
@@ -215,13 +206,13 @@ RAGAS는 RAG 평가의 사실상 표준(reference-free LLM 자동채점). 우리
 #### 고유 비교 축
 1. 답변모델 5종 비교 — 동일 검색·프롬프트에서 최고 RAG 답변(답변모델 선정 근거).
 2. 검색품질 → 답변품질 전이 — 하이브리드+리랭커 vs 단일 BM25 top-1.
-3. closed-book 대조 — 컨텍스트 없이 vs RAG (RAG 실효·환각 누출 점검; RAG=Lewis et al. 2020).
+3. closed-book 대조 — 컨텍스트 없이 vs RAG (RAG 실효·환각 누출 점검; RAG[[1]](#ref1)).
 4. 프롬프트 변형 — 인용지시·컨텍스트 포맷·거부유도.
 
 #### 엄밀성
 - judge 독립성: 답변모델과 다른 계열(같으면 자기우대 +10~25%). 결과는 답변모델별 분리 보고.
 - 레퍼런스 기반 채점: judge에 정답+정답조문 제공 → 자기지식 의존↓.
-- 인간(법률가) 표본 검수 ~150문 + 일치계수(κ) 보고 (ARES, Saad-Falcon 2024; KBL, Kim et al. 2024 관행).
+- 인간(법률가) 표본 검수 ~150문 + 일치계수(κ) 보고 (ARES[[17]](#ref17)·KBL[[18]](#ref18) 관행).
 
 </details>
 
@@ -234,22 +225,11 @@ RAGAS는 RAG 평가의 사실상 표준(reference-free LLM 자동채점). 우리
 ![격식체 vs 구어체](benchmark/figures/fig_06_register.png)
 > **그림 6.** 구어체 ≥ 격식체 — 질의측 어휘격차가 작아 HyPE·HyDE 증강이 무의미함을 예측.
 
-- 구어체가 격식체보다 검색이 더 쉬움 (벡터 KURE: 격식 0.733 vs 구어 1.000) — 구어가 짧고 직접적이라 의미 매칭 용이.
-- 이 결과가 **HyPE·HyDE 무용을 예측**한다 — 메울 어휘격차가 없는데 가설질문/답변은 그 격차를 메우는 기법이다.
-- **HyPE·HyDE·LightRAG 세 증강 모두 부정** — 가설질문(색인측)·가설답변(질의측)·지식그래프 어느 것도 잘 튜닝된 하이브리드+리랭커를 못 이김.
-- 교훈: **"가정 말고 실측."** 논문상 이득이 도메인 전이가 안 됨 → 새 도메인 적용 시 도입 전 실측 필수.
+흥미롭게도 구어체 질문이 격식체보다 검색이 더 쉬웠다(벡터 KURE 기준 격식 0.733 vs 구어 1.000). 구어체가 짧고 직접적이어서 의미 매칭이 쉽기 때문인데, 이는 곧 메워야 할 질의–조문 어휘격차가 애초에 작다는 뜻이다. 그런데 HyPE(가설질문)와 HyDE(가설답변)는 바로 그 격차를 메우려는 기법이므로, 이 발견은 두 기법의 무용을 이미 예고한다. 실제로 색인측(HyPE)·질의측(HyDE)·지식그래프(LightRAG) 세 증강 모두 잘 튜닝된 하이브리드+리랭커를 넘지 못했다. 핵심 교훈은 **"가정 말고 실측"** 이다 — 논문에서 보고된 이득이 도메인을 옮기면 사라질 수 있으므로, 새 도메인에 도입하기 전 반드시 측정해야 한다.
 
-**적용 권고** (다른 한국어 문서 코퍼스로 옮길 때)
-1. 조항/섹션 단위 청킹 + 하이브리드(BM25+dense) + 리랭커를 기본으로.
-2. 명칭·번호·표 어휘가 많은 문서일수록 BM25가 강력한 베이스라인, dense는 의미 질문 보완, 리랭커는 거의 항상 이득.
-3. 한국어 임베딩은 KURE-v1. 교차참조(문서 간 인용)는 그래프/하이브리드로 별도 보완.
-4. 답변모델은 크기보다 적합성 — 한국어 중형(예: gemma-4-31B급)을 동일 검색·프롬프트에서 실측 비교해 선정.
+**적용 권고.** 다른 한국어 문서 코퍼스로 옮길 때는, 조항·섹션 단위로 청킹하고 BM25와 dense를 합친 하이브리드에 리랭커를 얹는 구성을 기본으로 삼는 것이 안전하다. 명칭·번호·표 어휘가 많은 문서일수록 BM25가 강력한 베이스라인이 되고 dense가 의미 질문을 보완하며, 리랭커는 거의 항상 이득을 준다. 한국어 임베딩으로는 KURE-v1이 가장 나았고, 규정·조문 간 인용 같은 교차참조는 그래프나 하이브리드로 따로 보완하면 좋다. 답변모델은 크기보다 도메인 적합성이 중요하므로, 한국어 중형(예: gemma-4-31B급)을 동일한 검색·프롬프트 조건에서 실측 비교해 선정하기를 권한다.
 
-**한계 및 향후**
-- 통제된 소규모 코퍼스(32법령) — 절대 수치보다 **기법 간 상대 비교**에 무게. 대규모 코퍼스 확장은 향후.
-- 답변 평가가 LLM judge 기반 — 인간(법률가) 표본 검수·일치계수(κ)는 향후.
-- 골드셋 단일 생성기(Mistral) — 다중 생성기 교차검증은 향후.
-- 시행일자 버전 검색·no-answer(기권) 유형은 미포함 — 목적2 MCP와 함께 보강 예정.
+**한계 및 향후.** 본 결과는 통제된 소규모 코퍼스(32개 법령)에서 얻은 것이라 절대 수치보다 **기법 간 상대 비교**에 무게를 두어야 하며, 대규모 코퍼스로의 확장은 향후 과제다. 답변 평가가 LLM judge에 의존하므로 법률가 표본 검수와 일치계수(κ) 보고가 뒤따라야 하고, 골드셋도 단일 생성기(Mistral)로 만들었으므로 다중 생성기 교차검증이 필요하다. 끝으로 시행일자 버전 검색이나 no-answer(기권) 유형은 아직 포함하지 않았으며, 목적2의 MCP와 함께 보강할 예정이다.
 
 ---
 
@@ -314,11 +294,7 @@ python -m benchmark.make_figures
 
 ## 6. 데이터·구조
 
-**데이터 파이프라인** (수집 → 필터 → 전처리 → 별표)
-1. 수집(`collect_laws.py`): 금융 키워드 28개 → 현행 200건 → 참조 재귀 → 2,596건(XML 2,582).
-2. 금융 범위: 키워드 1차 + 직접참조 = 931건(재귀로 들어온 비금융 제외).
-3. 조문 전처리(`lawdoc.py`): XML → 조 단위 청크. uid = `{법령ID}-{조문번호:04d}{-가지}` / 별표 `{법령ID}-별표{번호}{-가지}`.
-4. 별표: PDF가 정답(API HTML은 JS iframe이라 스크래핑 불가, 원본 HWP는 표 구조 퇴화). 변환은 kordoc(PDF 모드)가 최적(GPU 불필요, MIT), 복잡 병합셀은 MinerU 폴백. 1,083개 전수 변환.
+**데이터 파이프라인** — `collect_laws.py`가 금융 키워드 28개로 현행 법령 200건을 찾고 인용된 법령을 재귀적으로 따라가 총 2,596건(본문 XML 2,582개)을 수집한다. 이 중 키워드 1차와 직접참조에 해당하는 931건을 금융 범위로 확정하며, 재귀로 딸려온 비금융 법령은 제외한다. `lawdoc.py`는 XML을 조 단위 청크로 전처리하고, 식별자는 조문 `{법령ID}-{조문번호:04d}{-가지}`·별표 `{법령ID}-별표{번호}{-가지}` 규칙을 따른다. 별표(부록·표)는 API의 HTML이 JS iframe이라 직접 스크래핑이 안 되고 원본 HWP는 표 구조가 퇴화하므로 PDF가 정답이며, 변환은 GPU가 필요 없고 라이선스가 자유로운 kordoc(PDF 모드)가 최적이고 복잡한 병합셀만 MinerU로 폴백한다 — 1,083개를 전수 변환했다.
 
 <details>
 <summary>디렉토리 구조</summary>
@@ -360,32 +336,32 @@ KA-013-KFinLaw-MCP/
 
 ## References
 
-본 벤치마크가 채택·검증한 기법의 원천. (본문 인용은 (저자 연도) 형식.)
+본 벤치마크가 채택·검증한 기법의 원천. 본문에서는 번호 링크(예: [[4]](#ref4))로 인용한다.
 
 **RAG · 검색 · 랭킹**
-- Lewis et al. (2020). *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks.* NeurIPS. [arXiv:2005.11401](https://arxiv.org/abs/2005.11401)
-- Robertson & Zaragoza (2009). *The Probabilistic Relevance Framework: BM25 and Beyond.* Foundations and Trends in IR. [doi:10.1561/1500000019](https://doi.org/10.1561/1500000019)
-- Karpukhin et al. (2020). *Dense Passage Retrieval for Open-Domain Question Answering.* EMNLP. [arXiv:2004.04906](https://arxiv.org/abs/2004.04906)
-- Cormack, Clarke & Büttcher (2009). *Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning Methods.* SIGIR. [doi:10.1145/1571941.1572114](https://doi.org/10.1145/1571941.1572114)
-- Nogueira & Cho (2019). *Passage Re-ranking with BERT.* [arXiv:1901.04085](https://arxiv.org/abs/1901.04085)
+- <a id="ref1"></a>**[1]** Lewis et al. (2020). *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks.* NeurIPS. [arXiv:2005.11401](https://arxiv.org/abs/2005.11401)
+- <a id="ref2"></a>**[2]** Robertson & Zaragoza (2009). *The Probabilistic Relevance Framework: BM25 and Beyond.* Foundations and Trends in IR. [doi:10.1561/1500000019](https://doi.org/10.1561/1500000019)
+- <a id="ref3"></a>**[3]** Karpukhin et al. (2020). *Dense Passage Retrieval for Open-Domain Question Answering.* EMNLP. [arXiv:2004.04906](https://arxiv.org/abs/2004.04906)
+- <a id="ref4"></a>**[4]** Cormack, Clarke & Büttcher (2009). *Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning Methods.* SIGIR. [doi:10.1145/1571941.1572114](https://doi.org/10.1145/1571941.1572114)
+- <a id="ref5"></a>**[5]** Nogueira & Cho (2019). *Passage Re-ranking with BERT.* [arXiv:1901.04085](https://arxiv.org/abs/1901.04085)
 
 **임베딩 · 리랭커 모델**
-- Wang et al. (2022). *Text Embeddings by Weakly-Supervised Contrastive Pre-training* (E5; KoE5 기반). [arXiv:2212.03533](https://arxiv.org/abs/2212.03533)
-- Chen et al. (2024). *BGE M3-Embedding: Multi-Lingual, Multi-Functionality, Multi-Granularity Text Embeddings* (BGE-M3 · bge-reranker-v2-m3). [arXiv:2402.03216](https://arxiv.org/abs/2402.03216)
-- NLP&AI Lab, Korea Univ. *KURE-v1 / KoE5* (한국어 검색 임베딩). [huggingface.co/nlpai-lab/KURE-v1](https://huggingface.co/nlpai-lab/KURE-v1)
+- <a id="ref6"></a>**[6]** Wang et al. (2022). *Text Embeddings by Weakly-Supervised Contrastive Pre-training* (E5; KoE5 기반). [arXiv:2212.03533](https://arxiv.org/abs/2212.03533)
+- <a id="ref7"></a>**[7]** Chen et al. (2024). *BGE M3-Embedding: Multi-Lingual, Multi-Functionality, Multi-Granularity Text Embeddings* (BGE-M3 · bge-reranker-v2-m3). [arXiv:2402.03216](https://arxiv.org/abs/2402.03216)
+- <a id="ref8"></a>**[8]** NLP&AI Lab, Korea Univ. *KURE-v1 / KoE5* (한국어 검색 임베딩). [huggingface.co/nlpai-lab/KURE-v1](https://huggingface.co/nlpai-lab/KURE-v1)
 
 **질의·색인 변환 / 그래프 RAG**
-- Gao et al. (2023). *Precise Zero-Shot Dense Retrieval without Relevance Labels* (HyDE, E7). ACL. [arXiv:2212.10496](https://arxiv.org/abs/2212.10496)
-- Vake, Vičič & Tošić (2025). *Bridging the Question-Answer Gap in RAG: Hypothetical Prompt Embeddings* (HyPE, E5). [SSRN:5139335](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5139335) · 구현: [NirDiamant/RAG_Techniques](https://github.com/NirDiamant/RAG_Techniques)
-- Guo et al. (2024). *LightRAG: Simple and Fast Retrieval-Augmented Generation* (E6). [arXiv:2410.05779](https://arxiv.org/abs/2410.05779)
+- <a id="ref9"></a>**[9]** Gao et al. (2023). *Precise Zero-Shot Dense Retrieval without Relevance Labels* (HyDE). ACL. [arXiv:2212.10496](https://arxiv.org/abs/2212.10496)
+- <a id="ref10"></a>**[10]** Vake, Vičič & Tošić (2025). *Bridging the Question-Answer Gap in RAG: Hypothetical Prompt Embeddings* (HyPE). [SSRN:5139335](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5139335) · 구현: [NirDiamant/RAG_Techniques](https://github.com/NirDiamant/RAG_Techniques)
+- <a id="ref11"></a>**[11]** Guo et al. (2024). *LightRAG: Simple and Fast Retrieval-Augmented Generation.* [arXiv:2410.05779](https://arxiv.org/abs/2410.05779)
 
 **골드셋 생성 (합성 질의)**
-- Bonifacio et al. (2022). *InPars: Data Augmentation for Information Retrieval using LLMs.* SIGIR. [arXiv:2202.05144](https://arxiv.org/abs/2202.05144)
-- Jeronymo et al. (2023). *InPars-v2: Large Language Models as Efficient Dataset Generators for IR.* [arXiv:2301.01820](https://arxiv.org/abs/2301.01820)
-- Dai et al. (2023). *Promptagator: Few-shot Dense Retrieval From 8 Examples.* ICLR. [arXiv:2209.11755](https://arxiv.org/abs/2209.11755)
+- <a id="ref12"></a>**[12]** Bonifacio et al. (2022). *InPars: Data Augmentation for Information Retrieval using LLMs.* SIGIR. [arXiv:2202.05144](https://arxiv.org/abs/2202.05144)
+- <a id="ref13"></a>**[13]** Jeronymo et al. (2023). *InPars-v2: Large Language Models as Efficient Dataset Generators for IR.* [arXiv:2301.01820](https://arxiv.org/abs/2301.01820)
+- <a id="ref14"></a>**[14]** Dai et al. (2023). *Promptagator: Few-shot Dense Retrieval From 8 Examples.* ICLR. [arXiv:2209.11755](https://arxiv.org/abs/2209.11755)
 
 **평가**
-- Järvelin & Kekäläinen (2002). *Cumulated Gain-based Evaluation of IR Techniques* (nDCG). ACM TOIS. [doi:10.1145/582415.582418](https://doi.org/10.1145/582415.582418)
-- Es et al. (2024). *RAGAS: Automated Evaluation of Retrieval Augmented Generation.* EACL. [arXiv:2309.15217](https://arxiv.org/abs/2309.15217)
-- Saad-Falcon et al. (2024). *ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation.* NAACL. [arXiv:2311.09476](https://arxiv.org/abs/2311.09476)
-- Kim et al. (2024). *Developing a Pragmatic Benchmark for Assessing Korean Legal Language Understanding in LLMs* (KBL). EMNLP Findings. [arXiv:2410.08731](https://arxiv.org/abs/2410.08731)
+- <a id="ref15"></a>**[15]** Järvelin & Kekäläinen (2002). *Cumulated Gain-based Evaluation of IR Techniques* (nDCG). ACM TOIS. [doi:10.1145/582415.582418](https://doi.org/10.1145/582415.582418)
+- <a id="ref16"></a>**[16]** Es et al. (2024). *RAGAS: Automated Evaluation of Retrieval Augmented Generation.* EACL. [arXiv:2309.15217](https://arxiv.org/abs/2309.15217)
+- <a id="ref17"></a>**[17]** Saad-Falcon et al. (2024). *ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation.* NAACL. [arXiv:2311.09476](https://arxiv.org/abs/2311.09476)
+- <a id="ref18"></a>**[18]** Kim et al. (2024). *Developing a Pragmatic Benchmark for Assessing Korean Legal Language Understanding in LLMs* (KBL). EMNLP Findings. [arXiv:2410.08731](https://arxiv.org/abs/2410.08731)
