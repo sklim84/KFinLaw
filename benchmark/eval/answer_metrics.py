@@ -5,11 +5,7 @@
      자기우대(self-enhancement) 회피 위해 judge는 답변모델과 다른 계열이어야 함(§8.4).
 점수는 [0,1]로 정규화((s-1)/4)해 보고.
 """
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from common import llm_chat, parse_json  # noqa: E402
+from benchmark.common import llm_chat, parse_json
 
 # judge가 채점하는 차원(키 = 보고 메트릭명). 인용정확도는 자동이라 제외.
 JUDGE_DIMS = ["faithfulness", "correctness", "relevancy", "completeness", "context_utilization"]

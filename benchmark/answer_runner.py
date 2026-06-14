@@ -8,29 +8,24 @@
   → good vs bad = '검색품질→답변품질' 전이, none = RAG 실효·환각 누출 대조(§8.3).
 
 사용 (답변모델·judge를 다른 endpoint/계열로 서빙):
-  python benchmark/answer_runner.py \
+  python -m benchmark.answer_runner \
     --base-url http://localhost:8000/v1 --answer-model LGAI-EXAONE/EXAONE-4.0-32B \
     --judge-base-url http://localhost:8001/v1 --judge-model openai/gpt-oss-120b
-  python benchmark/answer_runner.py --answer-model ... --retrieval none   # closed-book 대조
-  python benchmark/answer_runner.py --answer-model ... --limit 20         # 스모크
+  python -m benchmark.answer_runner --answer-model ... --retrieval none   # closed-book 대조
+  python -m benchmark.answer_runner --answer-model ... --limit 20         # 스모크
 """
-import sys
 import json
 import argparse
 import time
 from collections import defaultdict
 from pathlib import Path
 
+from benchmark.pipeline.chunkers import build_chunks
+from benchmark.pipeline.retrievers import build_retriever, Reranker
+from benchmark.eval import answer_metrics as AM
+from benchmark.common import CONFIG, DEFAULT_ENDPOINT, load_json, load_jsonl, llm_chat, parse_json
+
 HERE = Path(__file__).parent
-sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE / "pipeline"))
-sys.path.insert(0, str(HERE / "eval"))
-
-from chunkers import build_chunks  # noqa: E402
-from retrievers import build_retriever, Reranker  # noqa: E402
-import answer_metrics as AM  # noqa: E402
-from common import CONFIG, DEFAULT_ENDPOINT, load_json, load_jsonl, llm_chat, parse_json  # noqa: E402
-
 CORPUS = load_json(HERE / "corpus_ids.json")
 AE = CONFIG["answer_eval"]
 
@@ -58,7 +53,7 @@ def build_context_retriever(mode, embedder_name):
     # good: 레이어1 최적(조청킹 + 하이브리드 + 리랭커)
     r = AE["retrieval"]
     chunks = build_chunks(r["chunker"], CORPUS, byeolpyo=byeolpyo)
-    from embedders import Embedder
+    from benchmark.pipeline.embedders import Embedder
     embedder = Embedder(embedder_name or r["embedder"])
     k = AE["context_top_k"]
     retr = build_retriever(r["retriever"], chunks, embedder=embedder, top_k=k)

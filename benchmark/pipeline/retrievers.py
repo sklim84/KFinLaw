@@ -8,7 +8,7 @@
 import re
 import numpy as np
 
-from common import CONFIG
+from benchmark.common import CONFIG
 
 _RET = CONFIG["retrieval"]            # rrf_k, fanout, rerank_candidates
 _RERANKER_MODEL = CONFIG["models"]["reranker"]

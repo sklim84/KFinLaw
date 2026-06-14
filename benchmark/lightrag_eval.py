@@ -4,9 +4,8 @@ LightRAG 검색 평가 (E6) — 골드셋으로 모드별 recall@k 측정.
 - 유형별(crossref/multihop 등) 분해. 하이브리드+리랭커(0.860)와 비교용.
 
 사용 (전체 색인 완료 + Mistral 서빙 중):
-  python benchmark/lightrag_eval.py --modes naive local global hybrid mix
+  python -m benchmark.lightrag_eval --modes naive local global hybrid mix
 """
-import sys
 import json
 import re
 import argparse
@@ -14,15 +13,12 @@ import asyncio
 from collections import defaultdict
 from pathlib import Path
 
-HERE = Path(__file__).parent
-sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE / "pipeline"))
-sys.path.insert(0, str(HERE / "eval"))
-from chunkers import build_chunks      # noqa: E402
-import retrieval_metrics as RM         # noqa: E402
-import lightrag_index as LI            # noqa: E402
-from common import LIGHTRAG_MODES, load_jsonl  # noqa: E402
+from benchmark.pipeline.chunkers import build_chunks
+from benchmark.eval import retrieval_metrics as RM
+from benchmark import lightrag_index as LI
+from benchmark.common import LIGHTRAG_MODES, load_jsonl
 
+HERE = Path(__file__).parent
 CORPUS = json.load(open(HERE / "corpus_ids.json", encoding="utf-8"))
 
 

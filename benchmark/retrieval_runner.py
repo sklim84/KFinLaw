@@ -4,26 +4,21 @@
 레이어2 답변 평가는 answer_runner.py (쌍 구조: retrieval_* ↔ answer_*).
 
 사용:
-  python benchmark/retrieval_runner.py --chunker article --retriever bm25 --byeolpyo md
-  python benchmark/retrieval_runner.py --chunker article --retriever hybrid --rerank --embedder kure-v1 --byeolpyo md
+  python -m benchmark.retrieval_runner --chunker article --retriever bm25 --byeolpyo md
+  python -m benchmark.retrieval_runner --chunker article --retriever hybrid --rerank --embedder kure-v1 --byeolpyo md
 """
-import sys
 import json
 import argparse
 import time
 from collections import defaultdict
 from pathlib import Path
 
+from benchmark.pipeline.chunkers import build_chunks, chunk_article
+from benchmark.pipeline.retrievers import build_retriever, ParentDocRetriever
+from benchmark.eval import retrieval_metrics as RM
+from benchmark.common import CONFIG, load_json, load_jsonl
+
 HERE = Path(__file__).parent
-sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE / "pipeline"))
-sys.path.insert(0, str(HERE / "eval"))
-
-from chunkers import build_chunks, chunk_article  # noqa: E402
-from retrievers import build_retriever, ParentDocRetriever  # noqa: E402
-import retrieval_metrics as RM               # noqa: E402
-from common import CONFIG, load_json, load_jsonl  # noqa: E402
-
 CORPUS = load_json(HERE / "corpus_ids.json")
 load_goldset = load_jsonl
 
@@ -36,13 +31,13 @@ def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=
 
     embedder = None
     if retriever_kind in ("vector", "hybrid") or hype:
-        from embedders import Embedder
+        from benchmark.pipeline.embedders import Embedder
         embedder = Embedder(embedder_name)
 
     t1 = time.time()
     if hype:
         # HyPE: 가설질문 임베딩 색인. hype=="raw"면 원문 병행(coverage gap 완화)
-        from retrievers import HyPERetriever
+        from benchmark.pipeline.retrievers import HyPERetriever
         hq = json.load(open(HERE / "hype_cache.json", encoding="utf-8"))
         retr = HyPERetriever(chunks, embedder, hq, top_k=top_k,
                              include_raw=(hype == "raw"))
@@ -54,7 +49,7 @@ def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=
     else:
         retr = build_retriever(retriever_kind, chunks, embedder=embedder, top_k=top_k)
     if rerank:
-        from retrievers import Reranker
+        from benchmark.pipeline.retrievers import Reranker
         retr = Reranker(retr, top_k=top_k)  # 기저 검색 후보를 크로스인코더로 재정렬
     t_index = time.time() - t1
 

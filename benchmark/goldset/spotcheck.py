@@ -3,22 +3,19 @@
 judge/일관성 필터 없이 '생성 품질 원본'만 본다(공정 비교). 모델별 결과를 파일로 저장.
 
 사용 (vLLM에 모델 하나 띄운 뒤):
-  python benchmark/goldset/spotcheck.py --base-url http://localhost:8000/v1 \
+  python -m benchmark.goldset.spotcheck --base-url http://localhost:8000/v1 \
       --model mistralai/Mistral-Small-4-119B-2603 --tag mistral4
   # 다른 모델로 바꿔 반복 → 결과 비교
-  python benchmark/goldset/spotcheck.py --compare   # 저장된 결과 나란히 출력
+  python -m benchmark.goldset.spotcheck --compare   # 저장된 결과 나란히 출력
 """
 import json
 import argparse
-import sys
 from pathlib import Path
 
-HERE = Path(__file__).parent
-sys.path.insert(0, str(HERE.parent))
-sys.path.insert(0, str(HERE.parent / "pipeline"))
-from lawdoc import load_law  # noqa: E402
-import build_goldset as BG    # noqa: E402
+from benchmark.lawdoc import load_law
+from benchmark.goldset import build_goldset as BG
 
+HERE = Path(__file__).parent
 OUTDIR = HERE / "spotcheck"
 # 고정 샘플: 다양한 법령·유형. (mst, 조문번호 또는 별표여부)
 SAMPLE = [

@@ -5,23 +5,20 @@ HyPE (Hypothetical Prompt Embeddings) 색인 생성
 - vLLM 서버 배칭을 위해 동시 호출(ThreadPoolExecutor). temp=0·reasoning_effort=none로 재현 가능.
 
 사용 (Mistral 서빙 중):
-  python benchmark/hype_index.py --model mistralai/Mistral-Small-4-119B-2603 \
+  python -m benchmark.hype_index --model mistralai/Mistral-Small-4-119B-2603 \
     --reasoning-effort none --n 5 --workers 16
 산출: benchmark/hype_cache.json  {chunk_id: ["질문1", ...]}
 """
 import json
 import argparse
-import sys
 import time
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
-HERE = Path(__file__).parent
-sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE / "pipeline"))
-from chunkers import build_chunks  # noqa: E402
-from common import CONFIG, CTX_CHARS, DEFAULT_ENDPOINT, load_json, llm_chat, parse_json  # noqa: E402
+from benchmark.pipeline.chunkers import build_chunks
+from benchmark.common import CONFIG, CTX_CHARS, DEFAULT_ENDPOINT, load_json, llm_chat, parse_json
 
+HERE = Path(__file__).parent
 CORPUS = load_json(HERE / "corpus_ids.json")
 OUT = HERE / "hype_cache.json"
 

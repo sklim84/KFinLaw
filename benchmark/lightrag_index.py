@@ -5,21 +5,18 @@ LightRAG 그래프 RAG 색인·검색 (E6)
 - 각 조문/별표를 개별 문서(id=uid)로 삽입 → 검색결과를 uid로 역매핑(recall 평가용)
 
 사용:
-  python benchmark/lightrag_index.py --smoke   # 2개 법령만(통합 검증)
-  python benchmark/lightrag_index.py            # 전체 코퍼스 색인
+  python -m benchmark.lightrag_index --smoke   # 2개 법령만(통합 검증)
+  python -m benchmark.lightrag_index            # 전체 코퍼스 색인
 """
-import sys
 import argparse
 import asyncio
 import numpy as np
 from pathlib import Path
 
-HERE = Path(__file__).parent
-sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE / "pipeline"))
-from chunkers import build_chunks  # noqa: E402
-from common import CONFIG, DEFAULT_ENDPOINT, load_json  # noqa: E402
+from benchmark.pipeline.chunkers import build_chunks
+from benchmark.common import CONFIG, DEFAULT_ENDPOINT, load_json
 
+HERE = Path(__file__).parent
 CORPUS = load_json(HERE / "corpus_ids.json")
 WORKDIR = HERE / "lightrag_storage"
 BASE_URL = DEFAULT_ENDPOINT

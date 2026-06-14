@@ -5,7 +5,7 @@
 """
 import re
 from pathlib import Path
-from lawdoc import load_law
+from benchmark.lawdoc import load_law
 
 
 def _breadcrumb(a):

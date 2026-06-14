@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from dataclasses import dataclass
 
-from common import txt, byeolpyo_key
+from benchmark.common import txt, byeolpyo_key
 
 BASE = Path(__file__).parent.parent
 RAW = BASE / "data" / "raw_xml"
@@ -119,7 +119,7 @@ def load_law(mst):
 
 
 if __name__ == "__main__":
-    from common import load_json
+    from benchmark.common import load_json
     corpus = load_json(Path(__file__).parent / "corpus_ids.json")
     meta, arts, byps = load_law(corpus[0]["mst"])
     print(f"{meta['법령명']}: 조문 {len(arts)}, 별표 {len(byps)}")

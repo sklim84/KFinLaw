@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 from collections import Counter
 from pathlib import Path
 
-from common import txt, load_json
+from benchmark.common import txt, load_json
 
 BASE = Path(__file__).parent.parent
 RAW = BASE / "data" / "raw_xml"

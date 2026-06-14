@@ -12,27 +12,24 @@
 
 사용:
   # 생성기와 judge를 다른 endpoint/계열로 분리
-  python benchmark/goldset/build_goldset.py \
+  python -m benchmark.goldset.build_goldset \
     --base-url http://localhost:8000/v1 --model LGAI-EXAONE/EXAONE-4.0-32B \
     --judge-base-url http://localhost:8001/v1 --judge-model upstage/Solar-Open-100B
   # 1차 검색용(일관성 필터만, judge 생략):
-  python benchmark/goldset/build_goldset.py --base-url ... --model ... --no-judge
-  python benchmark/goldset/build_goldset.py --smoke
+  python -m benchmark.goldset.build_goldset --base-url ... --model ... --no-judge
+  python -m benchmark.goldset.build_goldset --smoke
 """
 import json
 import re
 import argparse
 import time
-import sys
 import random
 from collections import Counter
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-sys.path.insert(0, str(Path(__file__).parent.parent / "pipeline"))
-from lawdoc import load_law          # noqa: E402
-from common import (CTX_CHARS, DEFAULT_ENDPOINT, CONFIG, load_json,  # noqa: E402
-                    llm_chat as chat, parse_json)
+from benchmark.lawdoc import load_law
+from benchmark.common import (CTX_CHARS, DEFAULT_ENDPOINT, CONFIG, load_json,
+                              llm_chat as chat, parse_json)
 
 HERE = Path(__file__).parent
 CORPUS = load_json(HERE.parent / "corpus_ids.json")
@@ -46,8 +43,8 @@ RNG = random.Random(42)  # 재현성
 # 주의: BM25(어휘적)는 구어체 질문을 과소평가할 수 있어, factoid 쌍은 '격식체'로 검사하고
 #       구어체는 같은 정답을 공유하므로 함께 채택(콜로퀴얼 페널티 회피).
 def build_consistency(retriever_kind="bm25", k=10):
-    from chunkers import build_chunks
-    from retrievers import build_retriever
+    from benchmark.pipeline.chunkers import build_chunks
+    from benchmark.pipeline.retrievers import build_retriever
     chunks = build_chunks("article", CORPUS, byeolpyo="md")  # 조문 + 별표
     retr = build_retriever(retriever_kind, chunks, top_k=max(k, 20))
 
