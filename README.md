@@ -220,6 +220,25 @@ KA-013-KFinLaw-MCP/
 | **context utilization** | 회수 컨텍스트를 실제 활용 | judge |
 > 인용 정확도는 자동·객관. 나머지는 gpt-oss-120b judge(레퍼런스 기반, temp=0, 답변순서 무작위화로 위치편향 완화).
 
+#### RAGAS 대응 (정렬했으나 라이브러리 비채택)
+RAGAS는 RAG 평가의 사실상 표준 프레임워크(reference-free LLM 자동채점, 검색/생성 분해). 우리 메트릭은
+그 분류에 **의도적으로 정렬**하되 라이브러리는 의존성으로 쓰지 않고 직접 구현했다 — gold(정답·정답조문 uid)를
+보유해 **레퍼런스 기반**으로 더 엄밀히 채점하고, judge를 답변모델과 다른 계열로 강제 분리(오염 통제)하며,
+조문 uid 인용검증·한국어 프롬프트를 직접 통제(정석·재현성)하기 위함.
+
+| 우리(`answer_metrics`) | RAGAS 대응 | 차이 |
+|---|---|---|
+| faithfulness | faithfulness | 동일 개념 |
+| answer relevancy | answer relevancy | 동일 개념 |
+| answer correctness | **answer correctness** | 둘 다 레퍼런스 필요(우리는 정답+정답조문 제공) |
+| context utilization | context utilization | 동일 개념 |
+| completeness | (표준 메트릭 없음, context recall에 근접) | 우리 커스텀(요건/항목 누락) |
+| **citation accuracy** | (RAGAS에 없음) | 조문 uid 일치 **자동·객관**, 도메인 특화 |
+
+> 참고: RAGAS의 context precision/recall은 *LLM 판정*이지만, 우리 레이어1(`retrieval_metrics.py`)은 조문 uid로
+> **결정론적** recall@k·nDCG를 재므로 더 객관적이다. 외부 타당성 교차검증이 필요하면 골드셋 일부에 RAGAS를
+> 별도 비교축으로 1회 돌려 judge 점수 상관을 확인할 수 있다(의존성·judge 모델 상이에 유의).
+
 ### 8.3 고유 비교 축
 1. **답변모델 5종 비교** — 동일 검색·프롬프트에서 누가 최고 RAG 답변? (사내 모델 선정 근거 = 목적1)
 2. **검색품질 → 답변품질 전이** — 좋은 검색(하이브리드+리랭커) vs 나쁜 검색(단일 BM25 top-1)이 답변에 미치는 영향.
