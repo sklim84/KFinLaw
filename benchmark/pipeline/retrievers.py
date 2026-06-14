@@ -166,6 +166,19 @@ class HyPERetriever:
         return out
 
 
+class HyDERetriever:
+    """HyDE(Gao et al. 2023): 질문 대신 LLM이 생성한 '가설 답변'을 임베딩해 dense 검색.
+    질의↔조문 어휘격차를 질의측에서 보정(HyPE=색인측의 대칭). base는 dense 기반(Vector/Hybrid),
+    hyde_docs={question: 가설답변}. 캐시에 없으면 원 질문으로 폴백.
+    (리랭커와 조합 시 Reranker가 base로 이걸 감싸 검색은 HyDE로, 재순위 점수는 원 질문으로 계산.)"""
+    def __init__(self, base, hyde_docs, top_k=10):
+        self.base, self.hyde_docs, self.top_k = base, hyde_docs, top_k
+
+    def search(self, query, top_k=None):
+        doc = self.hyde_docs.get(query) or query
+        return self.base.search(doc, top_k or self.top_k)
+
+
 def build_retriever(kind, chunks, embedder=None, top_k=10):
     if kind == "vector":
         return VectorRetriever(chunks, embedder, top_k)
