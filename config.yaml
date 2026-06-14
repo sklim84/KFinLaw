@@ -62,4 +62,6 @@ hype:
 # LightRAG (E6)
 lightrag:
   modes: ["naive", "local", "global", "hybrid", "mix"]
-  llm_max_async: 8
+  llm_max_async: 16         # 동시 LLM 호출(GPU 전용 시 ↑; 학습 공존 시 8로 낮춤)
+  max_parallel_insert: 16   # 문서 동시 색인(기본 3 = 처리량 병목 → 상향)
+  max_gleaning: 0           # 엔티티 재추출(gleaning) 횟수. 0=비활성 → LLM 호출 ~절반(색인 가속)

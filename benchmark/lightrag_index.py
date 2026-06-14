@@ -52,10 +52,13 @@ async def make_rag():
     from lightrag.utils import EmbeddingFunc
     from lightrag.kg.shared_storage import initialize_pipeline_status
     WORKDIR.mkdir(parents=True, exist_ok=True)
+    lr = CONFIG["lightrag"]
     rag = LightRAG(
         working_dir=str(WORKDIR),
         llm_model_func=llm_func,
-        llm_model_max_async=CONFIG["lightrag"]["llm_max_async"],
+        llm_model_max_async=lr["llm_max_async"],
+        max_parallel_insert=lr["max_parallel_insert"],          # 문서 동시 색인(기본 3 병목 해소)
+        entity_extract_max_gleaning=lr["max_gleaning"],         # gleaning 0 → LLM 호출 ~절반
         embedding_func=EmbeddingFunc(embedding_dim=1024, max_token_size=8192, func=embed_func),
         addon_params={"language": "Korean"},  # 엔티티/관계를 한국어로 추출(영어 추출 방지)
     )

@@ -19,6 +19,9 @@ MAX_LEN="$(cfg "['serving']['max_model_len']")"
 GPU_UTIL="${GPU_UTIL:-$(cfg "['serving']['gpu_util']")}"
 GEN_MODEL="$(cfg "['models']['generator']")"
 JUDGE_MODEL="$(cfg "['models']['judge']")"
+# EAGER=1(기본): --enforce-eager(메모리 절약·재현). EAGER=0: CUDA graph(디코딩 가속, 메모리↑).
+EAGER="${EAGER:-1}"
+[ "$EAGER" = "1" ] && EAGER_FLAG="--enforce-eager" || EAGER_FLAG=""
 LOGDIR="$ROOT/tests/vllm"; mkdir -p "$LOGDIR"
 
 stop_all() {
@@ -42,7 +45,7 @@ serve() {
   # 격리: PYTHONPATH 제거 + 유저사이트 차단 → venv 자기 패키지만 사용
   env -u PYTHONPATH PYTHONNOUSERSITE=1 NUMEXPR_MAX_THREADS=64 OMP_NUM_THREADS=8 \
     setsid nohup "$VLLM" serve "$model" "$@" \
-    --max-model-len "$MAX_LEN" --gpu-memory-utilization "$GPU_UTIL" --enforce-eager --port "$PORT" \
+    --max-model-len "$MAX_LEN" --gpu-memory-utilization "$GPU_UTIL" $EAGER_FLAG --port "$PORT" \
     > "$LOGDIR/serve.log" 2>&1 &
   echo "PID=$! 로그=$LOGDIR/serve.log"
   echo "준비 대기(최대 ~12분)..."
