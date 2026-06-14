@@ -91,7 +91,8 @@ async def main_async(args):
     q = "금융거래의 비밀보장은 어떻게 규정되어 있나요?"
     for mode in CONFIG["lightrag"]["modes"]:
         try:
-            ctx = await rag.aquery(q, param=QueryParam(mode=mode, only_need_context=True, top_k=10))
+            ctx = await rag.aquery(q, param=QueryParam(mode=mode, only_need_context=True,
+                                                       top_k=10, enable_rerank=False))
             print(f"\n--- mode={mode} (컨텍스트 앞 300자) ---")
             print(str(ctx)[:300])
         except Exception as e:

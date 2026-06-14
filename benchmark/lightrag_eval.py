@@ -58,7 +58,8 @@ async def eval_mode(rag, mode, goldset, t2u, top_k=10):
         try:
             ctx = await rag.aquery(q["question"],
                                    param=QueryParam(mode=mode, only_need_context=True,
-                                                    top_k=top_k, chunk_top_k=top_k))
+                                                    top_k=top_k, chunk_top_k=top_k,
+                                                    enable_rerank=False))
         except Exception:
             ctx = ""
         ranked_uids = parse_chunk_uids(str(ctx), t2u)
