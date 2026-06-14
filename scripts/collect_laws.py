@@ -19,7 +19,10 @@ DATA_DIR = BASE_DIR / "data"
 RAW_XML_DIR = DATA_DIR / "raw_xml"
 LIST_DIR = DATA_DIR / "law_list"
 
-OC = "captiong84"
+# 국가법령정보센터 Open API 인증키(OC) — 사용자별로 발급받아 환경변수로 설정.
+#   발급: https://open.law.go.kr (회원가입 후 OPEN API 신청)
+#   사용: export LAW_OC=<본인_인증키>
+OC = os.environ.get("LAW_OC", "")
 SEARCH_URL = "https://www.law.go.kr/DRF/lawSearch.do"
 DETAIL_URL = "https://www.law.go.kr/DRF/lawService.do"
 
@@ -187,6 +190,11 @@ def search_law_by_name(name):
 
 
 def main():
+    if not OC:
+        import sys
+        sys.exit("[오류] 환경변수 LAW_OC가 설정되지 않았습니다.\n"
+                 "  국가법령정보센터(https://open.law.go.kr)에서 본인 인증키를 발급받아\n"
+                 "  export LAW_OC=<본인_인증키> 로 설정 후 다시 실행하세요.")
     os.makedirs(RAW_XML_DIR, exist_ok=True)
     os.makedirs(LIST_DIR, exist_ok=True)
 
