@@ -38,7 +38,7 @@
 
 ## 핵심 결과
 
-검색 실험은 한 번에 한 변수만 바꿔 비교한다 — E1 청킹 · E2 임베딩 · E3 검색기+리랭커 · E5 HyPE · E6 그래프(E4 별표소스 미실행).
+검색 실험은 한 번에 한 변수만 바꿔 비교한다 — E1 청킹 · E2 임베딩 · E3 검색기+리랭커 · E4 별표소스 · E5 HyPE · E6 그래프.
 셋업: 코퍼스 32법령(~3,251 청크), 골드셋 240문(factoid·crossref·byeolpyo·multihop 각 60), gold = 조문/별표 uid.
 
 **리더보드** — 전체 240문, recall@5 / MRR / nDCG@10
@@ -62,6 +62,7 @@
 | E1 청킹 | 조(條) 단위가 BM25·벡터 양쪽 최고 (fixed는 벡터에 불리, parent-doc는 벡터 랭킹 개선) |
 | E2 임베딩 | KURE-v1 > KoE5 > BGE-M3 (한국어 특화 우위) |
 | E3 검색기 🏆 | 하이브리드+리랭커가 최적. 리랭커가 단일 최대 레버 — crossref 0.48 → 0.73 |
+| E4 별표소스 | kordoc-md vs 평문(BM25): 별표 recall@5 **0.950 vs 0.900** — 표구조 보존이 +5pp. 단 MRR·nDCG는 동급이라 평문도 경쟁력 |
 | E5 HyPE ❌ | 부정 결과: 0.675 < 원문 0.767 (가설질문이 노이즈, crossref 붕괴) |
 | E6 LightRAG ❌ | 그래프 RAG가 하이브리드+리랭커(0.860)에 크게 미달. 최고는 naive(0.738) < 단일 벡터(0.767), 그래프 모드(local/global/hybrid/mix)는 naive보다 낮음 — crossref·multihop에도 이득 없음 |
 
@@ -149,7 +150,7 @@ python -m benchmark.answer_runner --answer-model LGAI-EXAONE/EXAONE-4.0-32B \
 
 | 축 | 변수 | 상태 |
 |---|---|---|
-| A 파싱 | 별표소스(kordoc-md/평문/MinerU)·노이즈 제거 | 부분 |
+| A 파싱 | 별표소스(kordoc-md/평문/MinerU)·노이즈 제거 | ✅ E4(md vs 평문) · MinerU 미연결 |
 | B 청킹 | 조/항/고정토큰/계층(parent-doc)·브레드크럼 | ✅ E1 |
 | C 임베딩 | KURE-v1/BGE-M3/KoE5 · 하이브리드 | ✅ E2 |
 | D 검색 | vector / BM25 / 하이브리드(RRF) / LightRAG 그래프 | ✅ E3 · ✅ E6 |

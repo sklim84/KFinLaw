@@ -121,7 +121,8 @@ def main():
     Path(args.out).mkdir(parents=True, exist_ok=True)
     tag = (f"{args.chunker}_{args.retriever}"
            + (f"_{args.embedder}" if args.retriever in ("vector", "hybrid") or args.hype else "")
-           + ("_hype" if args.hype else "") + ("_rerank" if args.rerank else ""))
+           + ("_hype" if args.hype else "") + ("_rerank" if args.rerank else "")
+           + (f"_byp-{args.byeolpyo}" if args.byeolpyo else ""))
     fp = Path(args.out) / f"{tag}.json"
     json.dump(result, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     print(f"\n저장: {fp}")
