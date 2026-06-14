@@ -38,6 +38,18 @@ goldset:
   per_type: 60            # 유형별 질문 수
   consistency_top_k: 10   # 일관성(round-trip) 필터 top-k
 
+# 레이어2 답변 생성 평가
+answer_eval:
+  context_top_k: 5          # 답변 생성에 넣을 회수 컨텍스트 수
+  max_answer_tokens: 1024   # 답변 생성 토큰 상한
+  # 레이어1 최적 config(고정) — 답변모델 효과를 검색 변동에서 격리(§8.1)
+  retrieval:
+    chunker: "article"
+    retriever: "hybrid"
+    embedder: "kure-v1"
+    rerank: true
+    byeolpyo: "md"
+
 # HyPE 색인
 hype:
   n_questions: 5          # 청크당 가설 질문 수

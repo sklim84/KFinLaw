@@ -12,7 +12,7 @@
 5. [데이터 파이프라인](#5-데이터-파이프라인)
 6. [벤치마크 설계](#6-벤치마크-설계)
 7. [모델 역할 & 서빙](#7-모델-역할--서빙)
-8. [레이어2 — 답변 생성 평가 설계](#8-레이어2--답변-생성-평가-설계)
+8. [레이어2 — 답변 생성 평가 (설계·구현)](#8-레이어2--답변-생성-평가-설계구현)
 9. [재현 방법](#9-재현-방법)
 10. [데이터 소스 · 인증키](#10-데이터-소스--인증키)
 
@@ -46,7 +46,7 @@
 | 벤치마크 하니스 | ✅ | 청커·임베더·검색기 플러그인 + 메트릭 + 러너 |
 | **1차 검색 실험** (E1·E2·E3·E5) | ✅ | 청킹·임베딩·하이브리드·리랭커·HyPE (결과 §3) |
 | **E6 LightRAG 그래프** | ⏸ 보류 | 통합·검증 완료, **전체 색인은 학습 GPU 종료 후 재개** |
-| 레이어2 답변 평가 | 📐 설계 | 아래 §8 (검색 최적 config 확정 후 실행) |
+| 레이어2 답변 평가 | 🟢 구현(실행 대기) | 아래 §8 (`answer_runner.py`·`answer_metrics.py` 완료, 답변모델 서빙 후 실행) |
 | 목적2 MCP/CLI | ⬜ 대기 | 하니스 완료 후 |
 
 ---
@@ -119,8 +119,9 @@ KA-013-KFinLaw-MCP/
 │   │   ├── build_goldset.py · questions.jsonl   # 골드셋 240문
 │   │   └── spotcheck.py                    # 생성기 후보 비교
 │   ├── pipeline/  chunkers · embedders · retrievers
-│   ├── eval/      retrieval_metrics
-│   ├── runner.py                          # config→리포트
+│   ├── eval/      retrieval_metrics · answer_metrics   # 레이어1 검색 · 레이어2 답변
+│   ├── runner.py                          # 레이어1 검색 평가 config→리포트
+│   ├── answer_runner.py                   # 레이어2 답변 생성 평가(검색→생성→채점)
 │   ├── hype_index.py · hype_cache.json    # HyPE(E5)
 │   ├── lightrag_index.py · lightrag_eval.py  # LightRAG(E6, 색인 보류)
 │   └── reports/   (gitignore)             # 실험 결과 JSON
@@ -156,7 +157,7 @@ KA-013-KFinLaw-MCP/
 | D 검색 | vector/BM25/**하이브리드(RRF)**/LightRAG그래프 | ✅ E3, ⏸ E6 |
 | E 질의/색인변환 | **HyPE**(색인측)·HyDE(질의측) | ✅ E5(HyPE) |
 | F 재순위 | bge-reranker-v2-m3 | ✅ E3 |
-| G 생성 | 컨텍스트포맷·인용지시 | 📐 레이어2 |
+| G 생성 | 컨텍스트포맷·인용지시 | 🟢 레이어2 |
 | H 운영 | 지연·빌드시간·비용·메모리 | ✅ timing |
 
 **원칙**: 일변수 격리(OFAT), 질문유형·register별 분해, 품질×운영비용 동시 평가.
@@ -170,7 +171,8 @@ KA-013-KFinLaw-MCP/
   생성기·judge·답변모델 **계열 분리**로 오염 회피. 일관성 필터(Promptagator/InPars)가 핵심.
 
 ### 메트릭 (`benchmark/eval/`)
-recall@k · precision@k · MRR · nDCG@k (유형별·register별 분해). gold = 조문/별표 uid 결정론 채점.
+- **레이어1(검색, `retrieval_metrics.py`)** — recall@k · precision@k · MRR · nDCG@k (유형별·register별 분해). gold = 조문/별표 uid 결정론 채점.
+- **레이어2(답변, `answer_metrics.py`)** — 인용정확도(자동: 인용 uid vs gold) + judge 루브릭 5종(faithfulness·correctness·relevancy·completeness·context_utilization, 1~5→0~1). 상세 §8.
 
 ---
 
@@ -196,17 +198,18 @@ recall@k · precision@k · MRR · nDCG@k (유형별·register별 분해). gold =
 
 ---
 
-## 8. 레이어2 — 답변 생성 평가 설계
+## 8. 레이어2 — 답변 생성 평가 (설계·구현)
 
 > 레이어1(검색)이 "맞는 조문을 찾았는가"라면, 레이어2는 **답변모델이 만든 답이 정확·충실한가**.
 > 골드셋·코퍼스·검색기를 **재사용**하고 답변생성+채점만 얹는다(RAGAS의 retrieval/generation 분리 구조).
 
-### 8.1 파이프라인 (신규 `benchmark/answer_runner.py`)
+### 8.1 파이프라인 (`benchmark/answer_runner.py` — 🟢 구현 완료)
 질문별: **① 검색**(레이어1 최적 config = 조청킹+하이브리드+리랭커로 컨텍스트 top-k 고정) →
-**② 답변 생성**(답변모델 + 프롬프트) → **③ 채점**(judge + 자동 인용검증).
-config = `{answer_model, prompt_variant}` (검색 config는 고정해 답변모델 효과 격리).
+**② 답변 생성**(답변모델, 근거 번호 인용 지시) → **③ 채점**(judge 루브릭 + 자동 인용검증).
+검색 config는 `config.yaml › answer_eval`에 고정 → 답변모델 효과만 격리. `--retrieval {good,bad,none}`로
+검색품질 전이·closed-book 대조를 한 러너에서 수행. 실행 예시는 §9.
 
-### 8.2 메트릭 (신규 `benchmark/eval/answer_metrics.py`, RAGAS 정렬)
+### 8.2 메트릭 (`benchmark/eval/answer_metrics.py` — 🟢 구현 완료, RAGAS 정렬)
 | 메트릭 | 측정 | 채점 |
 |---|---|---|
 | **faithfulness(충실성)** | 답이 회수 컨텍스트에 근거(환각 없음) | judge: 답의 각 주장이 컨텍스트에 지지되는 비율 |
@@ -259,6 +262,11 @@ python benchmark/runner.py --chunker article --hype --embedder kure-v1 --byeolpy
 # E6 LightRAG (학습 GPU 종료 후)
 python benchmark/lightrag_index.py            # 전체 색인 ~20-40분
 python benchmark/lightrag_eval.py --modes naive local global hybrid mix
+
+# 레이어2 답변 생성 평가 (답변모델 서빙 + 독립 judge 후)
+python benchmark/answer_runner.py --answer-model LGAI-EXAONE/EXAONE-4.0-32B \
+    --judge-base-url http://localhost:8001/v1 --judge-model openai/gpt-oss-120b
+python benchmark/answer_runner.py --answer-model ... --retrieval none   # closed-book 대조
 ```
 
 **환경 재현**: `serving/requirements.venv.full.lock` (vllm 0.23.0 등). 임베딩은 sentence-transformers 5.5.1 + KURE-v1.

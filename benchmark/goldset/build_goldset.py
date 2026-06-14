@@ -22,7 +22,6 @@
 import json
 import re
 import argparse
-import urllib.request
 import time
 import sys
 import random
@@ -32,7 +31,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "pipeline"))
 from lawdoc import load_law          # noqa: E402
-from common import CTX_CHARS, DEFAULT_ENDPOINT, CONFIG, load_json  # noqa: E402
+from common import (CTX_CHARS, DEFAULT_ENDPOINT, CONFIG, load_json,  # noqa: E402
+                    llm_chat as chat, parse_json)
 
 HERE = Path(__file__).parent
 CORPUS = load_json(HERE.parent / "corpus_ids.json")
@@ -59,59 +59,7 @@ def build_consistency(retriever_kind="bm25", k=10):
     return passes
 
 
-# ---------- LLM 클라이언트 (OpenAI 호환, 의존성 없음) ----------
-def chat(base_url, model, system, user, temperature=0.0, max_retries=3, reasoning_effort=None):
-    # reasoning_effort: Mistral Small 4 등 추론 모델의 공식 per-request 파라미터.
-    # 골드셋 생성엔 "none"(빠르고 결정론적) 권장. 미설정 시 미전송.
-    url = base_url.rstrip("/") + "/chat/completions"
-    payload = {
-        "model": model,
-        "messages": [{"role": "system", "content": system},
-                     {"role": "user", "content": user}],
-        "temperature": temperature,
-        "max_tokens": 1024,
-        "response_format": {"type": "json_object"},  # vLLM 가이드 JSON — 파싱 안정화
-    }
-    if reasoning_effort:
-        payload["reasoning_effort"] = reasoning_effort
-    def _post(pl):
-        req = urllib.request.Request(url, data=json.dumps(pl).encode(),
-                                     headers={"Content-Type": "application/json",
-                                              "Authorization": "Bearer EMPTY"})
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            return json.loads(resp.read())["choices"][0]["message"]["content"]
-
-    for i in range(max_retries):
-        try:
-            return _post(payload)
-        except urllib.error.HTTPError as e:
-            # response_format 미지원(400) 시 해당 키 제거 후 폴백
-            if e.code == 400 and "response_format" in payload:
-                payload.pop("response_format", None)
-                continue
-            if i < max_retries - 1:
-                time.sleep(2)
-            else:
-                print(f"  [LLM HTTP {e.code}] {e}", file=sys.stderr)
-                return None
-        except Exception as e:
-            if i < max_retries - 1:
-                time.sleep(2)
-            else:
-                print(f"  [LLM ERROR] {e}", file=sys.stderr)
-                return None
-
-
-def parse_json(text):
-    if not text:
-        return None
-    m = re.search(r"\{.*\}", text, re.S)
-    if not m:
-        return None
-    try:
-        return json.loads(m.group(0))
-    except json.JSONDecodeError:
-        return None
+# ---------- LLM 클라이언트·JSON 파서는 common(llm_chat/parse_json)에서 공유 ----------
 
 
 # ---------- 프롬프트 ----------
