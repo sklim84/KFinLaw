@@ -1,0 +1,49 @@
+# KA-013 주요 환경설정 (단일 출처)
+# Python 코드는 benchmark/common.py 의 CONFIG 로 로드. 셸 스크립트는 yaml 헬퍼로 참조.
+
+# 로컬 vLLM 서빙 (OpenAI 호환 엔드포인트)
+serving:
+  endpoint: "http://localhost:8000/v1"
+  venv: "/home/work/kftc_model/kfinlaw-serve"   # 전용 격리 venv
+  gpu_util: 0.26          # 학습 GPU 공존: 가장 빡빡한 GPU 여유에 맞춰 조정
+  max_model_len: 4096
+  port: 8000
+
+# 역할별 모델 (오염 회피: 생성기·judge·답변모델 계열 분리)
+models:
+  generator: "mistralai/Mistral-Small-4-119B-2603"   # 골드셋·HyPE 생성기 (독립 계열)
+  judge: "openai/gpt-oss-120b"                        # 레이어2 답변 평가 judge (독립 계열)
+  reranker: "BAAI/bge-reranker-v2-m3"                 # 크로스인코더 재순위
+  embedders:                                          # 키 → HuggingFace repo
+    kure-v1: "nlpai-lab/KURE-v1"
+    bge-m3: "BAAI/bge-m3"
+    koe5: "nlpai-lab/KoE5"
+  answer_models:                                      # 레이어2 평가대상(사내 실사용)
+    - "skt/A.X-4.0"
+    - "upstage/Solar-Open-100B"
+    - "LGAI-EXAONE/EXAONE-4.0-32B"
+    - "google/gemma-4-31B-it"
+    - "Qwen/Qwen3.6-27B"
+
+# 검색 하이퍼파라미터
+retrieval:
+  top_k: 10
+  rrf_k: 60               # 하이브리드 RRF 상수
+  fanout: 50              # 하이브리드 각 검색기 후보 수
+  rerank_candidates: 30   # 리랭커 입력 후보 수
+
+# 골드셋 생성
+goldset:
+  ctx_chars: 2500         # 생성 프롬프트 근거 텍스트 상한
+  per_type: 60            # 유형별 질문 수
+  consistency_top_k: 10   # 일관성(round-trip) 필터 top-k
+
+# HyPE 색인
+hype:
+  n_questions: 5          # 청크당 가설 질문 수
+  workers: 16             # 동시 호출(vLLM 배칭)
+
+# LightRAG (E6)
+lightrag:
+  modes: ["naive", "local", "global", "hybrid", "mix"]
+  llm_max_async: 8

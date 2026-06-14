@@ -19,15 +19,23 @@
   python benchmark/goldset/build_goldset.py --base-url ... --model ... --no-judge
   python benchmark/goldset/build_goldset.py --smoke
 """
-import json, re, argparse, urllib.request, time, sys, random
+import json
+import re
+import argparse
+import urllib.request
+import time
+import sys
+import random
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "pipeline"))
-from lawdoc import load_law  # noqa: E402
+from lawdoc import load_law          # noqa: E402
+from common import CTX_CHARS, DEFAULT_ENDPOINT, CONFIG, load_json  # noqa: E402
 
 HERE = Path(__file__).parent
-CORPUS = json.load(open(HERE.parent / "corpus_ids.json", encoding="utf-8"))
+CORPUS = load_json(HERE.parent / "corpus_ids.json")
 OUT = HERE / "questions.jsonl"
 RNG = random.Random(42)  # 재현성
 
@@ -123,7 +131,7 @@ GEN_PAIR_SYS = (
 
 TYPE_HINT = {
     "factoid": "정의·요건·기준 등 사실 관계를 묻는 질문.",
-    "crossref": f"이 조문이 인용하는 다른 법령/제도와의 관계를 묻는 질문.",
+    "crossref": "이 조문이 인용하는 다른 법령/제도와의 관계를 묻는 질문.",
     "byeolpyo": "별표의 구체적 수치·기준·항목 값을 묻는 질문.",
     "multihop": "이 조문이 대통령령 등 하위법령에 위임한 사항을 묻는 질문.",
 }
@@ -140,7 +148,7 @@ JUDGE_SYS = (
 def gen_qa(base_url, model, qtype, context, label, reasoning_effort=None):
     # temp=0: 골드셋을 완전 재현 가능하게(벤치마크 안정성). 질문 다양성은 수천 개
     # 서로 다른 조문에서 확보되므로 샘플링 온도에 의존하지 않음.
-    user = (f"[질문 유형] {TYPE_HINT[qtype]}\n\n[근거 {label}]\n{context[:2500]}\n\n"
+    user = (f"[질문 유형] {TYPE_HINT[qtype]}\n\n[근거 {label}]\n{context[:CTX_CHARS]}\n\n"
             "위 근거만으로 답할 수 있는 질문과 정답을 JSON으로 생성하라.")
     return parse_json(chat(base_url, model, GEN_SYS, user, temperature=0.0,
                            reasoning_effort=reasoning_effort))
@@ -148,13 +156,13 @@ def gen_qa(base_url, model, qtype, context, label, reasoning_effort=None):
 
 def gen_pair(base_url, model, context, reasoning_effort=None):
     """격식체+구어체 질문 쌍 생성(공통 정답). 1회 호출로 matched pair."""
-    user = f"[근거 조문]\n{context[:2500]}\n\n격식체·구어체 질문 2개와 공통 정답을 JSON으로 생성하라."
+    user = f"[근거 조문]\n{context[:CTX_CHARS]}\n\n격식체·구어체 질문 2개와 공통 정답을 JSON으로 생성하라."
     return parse_json(chat(base_url, model, GEN_PAIR_SYS, user, temperature=0.0,
                            reasoning_effort=reasoning_effort))
 
 
 def judge_qa(base_url, model, question, answer, context, reasoning_effort=None):
-    user = f"[근거 텍스트]\n{context[:2500]}\n\n[질문] {question}\n[정답] {answer}"
+    user = f"[근거 텍스트]\n{context[:CTX_CHARS]}\n\n[질문] {question}\n[정답] {answer}"
     j = parse_json(chat(base_url, model, JUDGE_SYS, user, temperature=0.0,
                         reasoning_effort=reasoning_effort))
     # grounded(정답이 근거에 존재) AND needs_context(일반상식으론 못 푸는 질문) 둘 다 참이어야 채택
@@ -211,29 +219,30 @@ def article_context(a):
 def byeolpyo_context(b):
     body = ""
     if b.md_path:
-        body = Path(b.md_path).read_text(encoding="utf-8")[:2500]
+        body = Path(b.md_path).read_text(encoding="utf-8")[:CTX_CHARS]
     else:
-        body = b.본문_평문[:2500]
+        body = b.본문_평문[:CTX_CHARS]
     return f"{b.법령명} [별표{b.번호}] {b.제목}\n{body}"
 
 
 def main():
     ap = argparse.ArgumentParser()
     # 생성기(generator)
-    ap.add_argument("--base-url", default="http://localhost:8000/v1")
-    ap.add_argument("--model", default="Qwen/Qwen2.5-72B-Instruct")
+    ap.add_argument("--base-url", default=DEFAULT_ENDPOINT)
+    ap.add_argument("--model", default=CONFIG["models"]["generator"])
     # judge(검증기) — 생성기와 다른 계열 권장(preference leakage 회피). 미지정 시 생성기와 동일(경고).
     ap.add_argument("--judge-base-url", default=None)
     ap.add_argument("--judge-model", default=None)
     # reasoning_effort: Mistral Small 4 등 추론모델의 공식 per-request 파라미터. 생성엔 "none" 권장.
     ap.add_argument("--reasoning-effort", default=None, help="생성기 추론수준(예: none). Mistral 계열 필수")
     ap.add_argument("--judge-reasoning-effort", default=None, help="judge 추론수준(예: none)")
-    ap.add_argument("--per-type", type=int, default=60)
+    ap.add_argument("--per-type", type=int, default=CONFIG["goldset"]["per_type"])
     ap.add_argument("--smoke", action="store_true")
     ap.add_argument("--no-judge", action="store_true", help="LLM judge 생략(일관성 필터만으로 검증)")
     # 일관성(round-trip) 필터 — 모델 불필요, 기본 ON
     ap.add_argument("--no-consistency", action="store_true")
-    ap.add_argument("--ck", type=int, default=10, help="일관성 필터 top-k")
+    ap.add_argument("--ck", type=int, default=CONFIG["goldset"]["consistency_top_k"],
+                    help="일관성 필터 top-k")
     args = ap.parse_args()
     if args.smoke:
         args.per_type = 2
@@ -323,7 +332,6 @@ def main():
     with open(OUT, "w", encoding="utf-8") as f:
         for r in results:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    from collections import Counter
     print(f"\n=== 골드셋 {len(results)}문 저장: {OUT} ===")
     print("유형별:", dict(Counter(r["type"] for r in results)))
     print("register별:", dict(Counter(r["register"] for r in results)))

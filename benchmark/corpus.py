@@ -4,10 +4,12 @@
 - 법↔시행령 멀티홉, 별표 조회, 교차참조를 모두 평가할 수 있는 구성
 산출: benchmark/corpus_ids.json  (각 법령의 mst/법령ID/구분/조문수/별표수 + 역할 태그)
 """
-import xml.etree.ElementTree as ET
 import json
-import os
+import xml.etree.ElementTree as ET
+from collections import Counter
 from pathlib import Path
+
+from common import txt, load_json
 
 BASE = Path(__file__).parent.parent
 RAW = BASE / "data" / "raw_xml"
@@ -32,13 +34,9 @@ CORE_LAWS = [
 SUFFIXES = ["", " 시행령", " 시행규칙"]
 
 
-def txt(e, t):
-    v = e.findtext(t); return (v or "").strip()
-
-
 def build_name_index():
     """법령명 -> 메타(mst, 법령ID, 구분, 조문수, 별표수)"""
-    final = json.load(open(BASE / "data/law_list/final_law_list.json", encoding="utf-8"))
+    final = load_json(BASE / "data/law_list/final_law_list.json")
     idx = {}
     for mst, v in final.items():
         f = RAW / f"{mst}.xml"
@@ -72,7 +70,7 @@ def main():
                 if suf == "":
                     missing.append(nm)
                 continue
-            role = "본법" if suf == "" else ("시행령" if suf == " 시행령" else "시행규칙")
+            role = {"": "본법", " 시행령": "시행령", " 시행규칙": "시행규칙"}[suf]
             corpus.append({**meta, "본법": base_name, "역할": role})
 
     # 통계
@@ -82,9 +80,7 @@ def main():
 
     print(f"코퍼스 법령: {len(corpus)}건 ({len(CORE_LAWS)}개 법령군)")
     print(f"  총 조문: {n_jo} | 총 별표('별표'종): {n_byp}")
-    from collections import Counter
-    c = Counter(x["역할"] for x in corpus)
-    print(f"  역할별: {dict(c)}")
+    print(f"  역할별: {dict(Counter(x['역할'] for x in corpus))}")
     if missing:
         print(f"  미수집 본법: {missing}")
     print(f"저장: {OUT}")

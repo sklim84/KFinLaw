@@ -106,9 +106,10 @@ def main():
     args = ap.parse_args()
     if args.compare:
         compare()
-    else:
-        assert args.model and args.tag, "--model 과 --tag 필요"
+    elif args.model and args.tag:
         run(args.base_url, args.model, args.tag)
+    else:
+        ap.error("--model 과 --tag 가 필요합니다 (또는 --compare).")
 
 
 if __name__ == "__main__":

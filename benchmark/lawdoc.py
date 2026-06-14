@@ -7,7 +7,9 @@
 import xml.etree.ElementTree as ET
 import re
 from pathlib import Path
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+
+from common import txt, byeolpyo_key
 
 BASE = Path(__file__).parent.parent
 RAW = BASE / "data" / "raw_xml"
@@ -16,8 +18,11 @@ BYP_MD = BASE / "data" / "byeolpyo_md"
 REF_PATTERN = re.compile(r"「([^」]+)」")
 
 
-def _txt(e, t):
-    v = e.findtext(t); return (v or "").strip()
+def _article_uid(lawid, jono, ga):
+    """조문 정답 식별자. 숫자 조문번호는 4자리 zero-pad(+가지), 비숫자는 원형."""
+    if jono.isdigit():
+        return f"{lawid}-{int(jono):04d}" + (f"-{ga}" if ga else "")
+    return f"{lawid}-{jono}{ga}"
 
 
 @dataclass
@@ -48,31 +53,28 @@ class Byeolpyo:
     md_path: str         # kordoc 변환 md 경로(있으면)
 
 
-def _flatten_article(u, lawid, lawname, chapter):
-    jono = _txt(u, "조문번호")
-    ga = _txt(u, "조문가지번호")
+def _flatten_article(elem, lawid, lawname, chapter):
+    jono = txt(elem, "조문번호")
+    ga = txt(elem, "조문가지번호")
     ga = ga if (ga and ga != "0") else ""
-    uid = f"{lawid}-{int(jono):04d}{('-' + ga) if ga else ''}" if jono.isdigit() else f"{lawid}-{jono}{ga}"
-    title = _txt(u, "조문제목")
     lines = []
-    body = _txt(u, "조문내용")
+    body = txt(elem, "조문내용")
     if body:
         lines.append(body)
-    for hang in u.findall("항"):
-        hc = _txt(hang, "항내용")
+    for hang in elem.findall("항"):
+        hc = txt(hang, "항내용")
         if hc:
             lines.append("  " + hc)
         for ho in hang.findall("호"):
-            hco = _txt(ho, "호내용")
+            hco = txt(ho, "호내용")
             if hco:
                 lines.append("    " + hco)
     full = "\n".join(lines)
-    refs = sorted({m.strip() for m in REF_PATTERN.findall(full)
-                   if len(m.strip()) >= 3 and not m.strip().endswith(("조", "항", "호"))})
-    no_disp = f"제{jono}조" + (f"의{ga}" if ga else "")
-    return Article(uid=uid, 법령ID=lawid, 법령명=lawname, 조문번호=jono, 가지번호=ga,
-                   제목=title, 장=chapter, 본문=full, refs=refs,
-                   is_buchik=(_txt(u, "조문여부") == "부칙"))
+    refs = sorted({ref.strip() for ref in REF_PATTERN.findall(full)
+                   if len(ref.strip()) >= 3 and not ref.strip().endswith(("조", "항", "호"))})
+    return Article(uid=_article_uid(lawid, jono, ga), 법령ID=lawid, 법령명=lawname,
+                   조문번호=jono, 가지번호=ga, 제목=txt(elem, "조문제목"), 장=chapter,
+                   본문=full, refs=refs, is_buchik=(txt(elem, "조문여부") == "부칙"))
 
 
 def load_law(mst):
@@ -86,31 +88,29 @@ def load_law(mst):
     jo = r.find(".//조문")
     if jo is not None:
         chapter = ""
-        for u in jo.findall("조문단위"):
+        for elem in jo.findall("조문단위"):
             # 장 구분 행: 조문여부가 '전문'이고 제목만 있는 경우 장 제목으로 추적
-            if _txt(u, "조문여부") == "전문" and not u.findall("항"):
-                t = _txt(u, "조문제목") or _txt(u, "조문내용")
-                if t and len(t) < 40:
-                    chapter = t
+            if txt(elem, "조문여부") == "전문" and not elem.findall("항"):
+                heading = txt(elem, "조문제목") or txt(elem, "조문내용")
+                if heading and len(heading) < 40:
+                    chapter = heading
                     continue
-            arts.append(_flatten_article(u, lawid, lawname, chapter))
+            arts.append(_flatten_article(elem, lawid, lawname, chapter))
 
     byps = []
-    for u in r.findall(".//별표단위"):
-        num = _txt(u, "별표번호") or "0"
-        ga = _txt(u, "별표가지번호")
-        # key는 다운로드/변환 파일명과 동일 규칙(가지 '00'도 포함). 가지가 다른 별표는
-        # 서로 다른 문서이므로 uid에도 반드시 가지를 넣어야 충돌하지 않음(별표8 vs 별표8의2).
-        key = num + (f"-{ga}" if ga and ga != "0" else "")
-        title = _txt(u, "별표제목")
-        m = re.search(r"제(\d+)조", title)
+    for elem in r.findall(".//별표단위"):
+        # key는 다운로드/변환 파일명·uid 공통 규칙(common.byeolpyo_key). 가지가 다른 별표는
+        # 서로 다른 문서이므로 uid에도 가지를 넣어야 충돌 없음(별표8 vs 별표8의2).
+        key = byeolpyo_key(txt(elem, "별표번호") or "0", txt(elem, "별표가지번호"))
+        title = txt(elem, "별표제목")
+        related = re.search(r"제(\d+)조", title)
         md = BYP_MD / f"{mst}_{key}.md"
         byps.append(Byeolpyo(
             uid=f"{lawid}-별표{key}",
             법령ID=lawid, 법령명=lawname, 번호=key,
-            구분=_txt(u, "별표구분"), 제목=title,
-            관련조문=(f"제{m.group(1)}조" if m else ""),
-            본문_평문=_txt(u, "별표내용"),
+            구분=txt(elem, "별표구분"), 제목=title,
+            관련조문=(f"제{related.group(1)}조" if related else ""),
+            본문_평문=txt(elem, "별표내용"),
             md_path=str(md) if md.exists() else "",
         ))
 
@@ -119,8 +119,8 @@ def load_law(mst):
 
 
 if __name__ == "__main__":
-    import json
-    corpus = json.load(open(Path(__file__).parent / "corpus_ids.json", encoding="utf-8"))
+    from common import load_json
+    corpus = load_json(Path(__file__).parent / "corpus_ids.json")
     meta, arts, byps = load_law(corpus[0]["mst"])
     print(f"{meta['법령명']}: 조문 {len(arts)}, 별표 {len(byps)}")
     a = next(x for x in arts if x.refs)

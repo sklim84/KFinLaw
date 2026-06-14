@@ -4,11 +4,7 @@ sentence-transformers로 로컬 GPU 직접 로드 (vLLM 서버 불필요).
 """
 import numpy as np
 
-MODELS = {
-    "kure-v1": "nlpai-lab/KURE-v1",
-    "bge-m3": "BAAI/bge-m3",
-    "koe5": "nlpai-lab/KoE5",
-}
+from common import EMBEDDER_MODELS as MODELS   # 키 → HF repo (config.yaml)
 
 # KoE5는 비대칭 프리픽스 요구 (query:/passage:)
 PREFIX = {

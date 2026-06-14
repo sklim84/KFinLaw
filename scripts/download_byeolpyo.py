@@ -6,7 +6,7 @@
 """
 import xml.etree.ElementTree as ET
 import urllib.request
-import json, os, time, sys, argparse
+import json, time, argparse
 from pathlib import Path
 
 BASE = Path(__file__).parent.parent
@@ -113,7 +113,7 @@ def main():
         time.sleep(args.delay)
 
     el = time.time() - t0
-    print(f"\n=== 완료 ===")
+    print("\n=== 완료 ===")
     print(f"성공 {ok} / 건너뜀 {skip} / 실패 {fail} / 전체 {len(targets)}")
     print(f"총 용량 {total_bytes/1e6:.1f}MB | 소요 {el:.0f}s")
     if failures:

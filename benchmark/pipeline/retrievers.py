@@ -8,6 +8,11 @@
 import re
 import numpy as np
 
+from common import CONFIG
+
+_RET = CONFIG["retrieval"]            # rrf_k, fanout, rerank_candidates
+_RERANKER_MODEL = CONFIG["models"]["reranker"]
+
 
 def ko_tokenize(text, ngram=2):
     """한국어 BM25용: 한글은 문자 n-gram(조사 결합에 강건), 영숫자는 단어 토큰."""
@@ -80,7 +85,8 @@ class ParentDocRetriever:
 class HybridRetriever:
     """BM25(어휘) + Vector(의미)를 RRF(Reciprocal Rank Fusion)로 융합.
     score(d) = Σ_r 1/(k_rrf + rank_r(d)). 법령RAG의 BM25·dense 상호보완을 결합."""
-    def __init__(self, chunks, embedder, top_k=10, k_rrf=60, fanout=50):
+    def __init__(self, chunks, embedder, top_k=10,
+                 k_rrf=_RET["rrf_k"], fanout=_RET["fanout"]):
         self.bm25 = BM25Retriever(chunks, top_k=fanout)
         self.vector = VectorRetriever(chunks, embedder, top_k=fanout)
         self.top_k, self.k_rrf, self.fanout = top_k, k_rrf, fanout
@@ -103,7 +109,8 @@ class Reranker:
     쌍으로 점수화해 재정렬. 정밀도·MRR 개선 목적."""
     _cache = {}
 
-    def __init__(self, base, model_name="BAAI/bge-reranker-v2-m3", top_k=10, candidates=30):
+    def __init__(self, base, model_name=_RERANKER_MODEL, top_k=10,
+                 candidates=_RET["rerank_candidates"]):
         if model_name not in Reranker._cache:
             from sentence_transformers import CrossEncoder
             Reranker._cache[model_name] = CrossEncoder(model_name, device="cuda",

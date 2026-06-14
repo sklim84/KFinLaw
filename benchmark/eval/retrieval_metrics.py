@@ -5,11 +5,6 @@ recall@k, precision@k, MRR, nDCG, hit@k
 import math
 
 
-def _retrieved_uids(ranked_chunks):
-    """순위대로 각 청크의 source_uids 집합 리스트"""
-    return [set(c["source_uids"]) for c in ranked_chunks]
-
-
 def hit_at_k(ranked_chunks, gold_ids, k):
     gold = set(gold_ids)
     for c in ranked_chunks[:k]:

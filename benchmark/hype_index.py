@@ -19,8 +19,9 @@ sys.path.insert(0, str(HERE / "pipeline"))
 sys.path.insert(0, str(HERE / "goldset"))
 from chunkers import build_chunks  # noqa: E402
 import build_goldset as BG          # noqa: E402
+from common import CONFIG, CTX_CHARS, DEFAULT_ENDPOINT, load_json  # noqa: E402
 
-CORPUS = json.load(open(HERE / "corpus_ids.json", encoding="utf-8"))
+CORPUS = load_json(HERE / "corpus_ids.json")
 OUT = HERE / "hype_cache.json"
 
 HYPE_SYS = (
@@ -31,7 +32,7 @@ HYPE_SYS = (
 
 def gen_questions(base_url, model, text, n, reasoning_effort):
     sys_p = HYPE_SYS.format(n=n)
-    user = f"[법령 텍스트]\n{text[:2500]}\n\n이 텍스트로 답할 수 있는 질문 {n}개를 JSON으로 생성하라."
+    user = f"[법령 텍스트]\n{text[:CTX_CHARS]}\n\n이 텍스트로 답할 수 있는 질문 {n}개를 JSON으로 생성하라."
     out = BG.chat(base_url, model, sys_p, user, temperature=0.0, reasoning_effort=reasoning_effort)
     j = BG.parse_json(out)
     if not j:
@@ -42,11 +43,11 @@ def gen_questions(base_url, model, text, n, reasoning_effort):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--base-url", default="http://localhost:8000/v1")
-    ap.add_argument("--model", default="mistralai/Mistral-Small-4-119B-2603")
+    ap.add_argument("--base-url", default=DEFAULT_ENDPOINT)
+    ap.add_argument("--model", default=CONFIG["models"]["generator"])
     ap.add_argument("--reasoning-effort", default="none")
-    ap.add_argument("--n", type=int, default=5, help="청크당 가설 질문 수")
-    ap.add_argument("--workers", type=int, default=16, help="동시 호출 수(vLLM 배칭)")
+    ap.add_argument("--n", type=int, default=CONFIG["hype"]["n_questions"], help="청크당 가설 질문 수")
+    ap.add_argument("--workers", type=int, default=CONFIG["hype"]["workers"], help="동시 호출 수(vLLM 배칭)")
     ap.add_argument("--byeolpyo", default="md")
     ap.add_argument("--chunker", default="article")
     args = ap.parse_args()

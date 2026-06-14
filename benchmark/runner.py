@@ -3,28 +3,28 @@
 config 순회 → 청킹 → 인덱싱 → 골드셋 질의 → 검색 메트릭 → 결과 JSON + 리포트 표
 
 사용:
-  python benchmark/runner.py --chunker article --retriever bm25
-  python benchmark/runner.py --chunker article --retriever vector --embedder kure-v1
-  python benchmark/runner.py --config benchmark/configs/E1_chunk.yaml   # (다중 config; 후속)
+  python benchmark/runner.py --chunker article --retriever bm25 --byeolpyo md
+  python benchmark/runner.py --chunker article --retriever hybrid --rerank --embedder kure-v1 --byeolpyo md
 """
-import sys, json, argparse, time
-from pathlib import Path
+import sys
+import json
+import argparse
+import time
 from collections import defaultdict
+from pathlib import Path
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / "pipeline"))
 sys.path.insert(0, str(HERE / "eval"))
 
-from chunkers import build_chunks, chunk_article, chunk_hang  # noqa: E402
-from retrievers import build_retriever, ParentDocRetriever    # noqa: E402
+from chunkers import build_chunks, chunk_article  # noqa: E402
+from retrievers import build_retriever, ParentDocRetriever  # noqa: E402
 import retrieval_metrics as RM               # noqa: E402
+from common import CONFIG, load_json, load_jsonl  # noqa: E402
 
-CORPUS = json.load(open(HERE / "corpus_ids.json", encoding="utf-8"))
-
-
-def load_goldset(path):
-    return [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
+CORPUS = load_json(HERE / "corpus_ids.json")
+load_goldset = load_jsonl
 
 
 def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=None,
@@ -112,7 +112,7 @@ def main():
     ap.add_argument("--byeolpyo", default=None, choices=[None, "md", "plain"],
                     help="별표 청크 포함 여부/소스 (byeolpyo 유형 질문 평가 시 필요)")
     ap.add_argument("--goldset", default=str(HERE / "goldset" / "questions.jsonl"))
-    ap.add_argument("--top-k", type=int, default=10)
+    ap.add_argument("--top-k", type=int, default=CONFIG["retrieval"]["top_k"])
     ap.add_argument("--out", default=str(HERE / "reports"))
     args = ap.parse_args()
 

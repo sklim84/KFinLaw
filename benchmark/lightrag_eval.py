@@ -6,15 +6,22 @@ LightRAG 검색 평가 (E6) — 골드셋으로 모드별 recall@k 측정.
 사용 (전체 색인 완료 + Mistral 서빙 중):
   python benchmark/lightrag_eval.py --modes naive local global hybrid mix
 """
-import sys, json, re, argparse, asyncio
-from pathlib import Path
+import sys
+import json
+import re
+import argparse
+import asyncio
 from collections import defaultdict
+from pathlib import Path
 
 HERE = Path(__file__).parent
-sys.path.insert(0, str(HERE)); sys.path.insert(0, str(HERE / "pipeline")); sys.path.insert(0, str(HERE / "eval"))
+sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE / "pipeline"))
+sys.path.insert(0, str(HERE / "eval"))
 from chunkers import build_chunks      # noqa: E402
 import retrieval_metrics as RM         # noqa: E402
 import lightrag_index as LI            # noqa: E402
+from common import LIGHTRAG_MODES, load_jsonl  # noqa: E402
 
 CORPUS = json.load(open(HERE / "corpus_ids.json", encoding="utf-8"))
 
@@ -68,7 +75,7 @@ async def eval_mode(rag, mode, goldset, t2u, top_k=10):
 async def main_async(args):
     rag = await LI.make_rag()
     t2u = text2uid_map()
-    goldset = [json.loads(l) for l in open(HERE / "goldset" / "questions.jsonl", encoding="utf-8")]
+    goldset = load_jsonl(HERE / "goldset" / "questions.jsonl")
     print(f"골드셋 {len(goldset)}문 | 청크맵 {len(t2u)}")
     for mode in args.modes:
         overall, by_type = await eval_mode(rag, mode, goldset, t2u, args.top_k)
@@ -82,7 +89,7 @@ async def main_async(args):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--modes", nargs="+", default=["naive", "local", "global", "hybrid", "mix"])
+    ap.add_argument("--modes", nargs="+", default=LIGHTRAG_MODES)
     ap.add_argument("--top-k", type=int, default=10)
     args = ap.parse_args()
     asyncio.run(main_async(args))

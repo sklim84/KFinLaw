@@ -12,6 +12,7 @@ import json
 import re
 import time
 import os
+import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent.parent
@@ -58,6 +59,21 @@ def api_request(url, params, max_retries=3):
                 return None
 
 
+def _law_info(item):
+    """검색 결과 <law> 항목 → 표준 법령 메타 dict."""
+    return {
+        "mst": item.findtext("법령일련번호"),
+        "법령ID": item.findtext("법령ID") or "",
+        "법령명": item.findtext("법령명한글") or "",
+        "법령약칭": item.findtext("법령약칭명") or "",
+        "법령구분": item.findtext("법령구분명") or "",
+        "소관부처": item.findtext("소관부처명") or "",
+        "시행일자": item.findtext("시행일자") or "",
+        "공포일자": item.findtext("공포일자") or "",
+        "현행여부": item.findtext("현행연혁코드") or "",
+    }
+
+
 def search_laws_by_keyword(keyword, target="law"):
     """키워드로 법령 검색, 전체 페이지 순회"""
     laws = {}
@@ -84,17 +100,7 @@ def search_laws_by_keyword(keyword, target="law"):
         for item in items:
             mst = item.findtext("법령일련번호")
             if mst:
-                laws[mst] = {
-                    "mst": mst,
-                    "법령ID": item.findtext("법령ID") or "",
-                    "법령명": item.findtext("법령명한글") or "",
-                    "법령약칭": item.findtext("법령약칭명") or "",
-                    "법령구분": item.findtext("법령구분명") or "",
-                    "소관부처": item.findtext("소관부처명") or "",
-                    "시행일자": item.findtext("시행일자") or "",
-                    "공포일자": item.findtext("공포일자") or "",
-                    "현행여부": item.findtext("현행연혁코드") or "",
-                }
+                laws[mst] = _law_info(item)
 
         if page * display >= total:
             break
@@ -157,41 +163,17 @@ def search_law_by_name(name):
         status = item.findtext("현행연혁코드") or ""
         # 현행 법령만, 이름이 일치하는 것 우선
         if found_name == name and status == "현행":
-            mst = item.findtext("법령일련번호")
-            return {
-                "mst": mst,
-                "법령ID": item.findtext("법령ID") or "",
-                "법령명": found_name,
-                "법령약칭": item.findtext("법령약칭명") or "",
-                "법령구분": item.findtext("법령구분명") or "",
-                "소관부처": item.findtext("소관부처명") or "",
-                "시행일자": item.findtext("시행일자") or "",
-                "공포일자": item.findtext("공포일자") or "",
-                "현행여부": status,
-            }
+            return _law_info(item)
 
     # 정확 매치 실패 시 첫 번째 현행 법령 반환
     for item in root.findall(".//law"):
-        status = item.findtext("현행연혁코드") or ""
-        if status == "현행":
-            mst = item.findtext("법령일련번호")
-            return {
-                "mst": mst,
-                "법령ID": item.findtext("법령ID") or "",
-                "법령명": item.findtext("법령명한글") or "",
-                "법령약칭": item.findtext("법령약칭명") or "",
-                "법령구분": item.findtext("법령구분명") or "",
-                "소관부처": item.findtext("소관부처명") or "",
-                "시행일자": item.findtext("시행일자") or "",
-                "공포일자": item.findtext("공포일자") or "",
-                "현행여부": status,
-            }
+        if (item.findtext("현행연혁코드") or "") == "현행":
+            return _law_info(item)
     return None
 
 
 def main():
     if not OC:
-        import sys
         sys.exit("[오류] 환경변수 LAW_OC가 설정되지 않았습니다.\n"
                  "  국가법령정보센터(https://open.law.go.kr)에서 본인 인증키를 발급받아\n"
                  "  export LAW_OC=<본인_인증키> 로 설정 후 다시 실행하세요.")
@@ -319,7 +301,7 @@ def main():
         for mst, info in sorted(current_laws.items(), key=lambda x: x[1].get("법령명", "")):
             f.write(f"{mst},{info['법령명']},{info.get('법령구분','')},{info.get('소관부처','')},{info.get('시행일자','')}\n")
 
-    print(f"\n저장 완료:")
+    print("\n저장 완료:")
     print(f"  - {LIST_DIR / 'final_law_list.json'}")
     print(f"  - {LIST_DIR / 'final_law_list.csv'}")
     print(f"  - {RAW_XML_DIR}/ ({len(list(RAW_XML_DIR.glob('*.xml')))}개 XML 파일)")

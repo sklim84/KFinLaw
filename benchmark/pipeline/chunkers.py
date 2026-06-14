@@ -79,10 +79,10 @@ def chunk_fixed(corpus, size=512, overlap=64):
     return chunks
 
 
-def chunk_parent(corpus, size=400):
-    """계층(parent-doc): 검색은 항 단위 임베딩, 반환 맥락은 전체 조. source는 조 uid.
-    여기서는 항 단위 청크를 만들되 chunk_id는 고유, source_uids=[조 uid] (반환시 조 본문 사용은 retriever 책임)."""
-    return chunk_hang(corpus)  # 항 단위 임베딩 = parent-doc의 child 인덱싱과 동치 (채점 동일)
+def chunk_parent(corpus):
+    """계층(parent-doc)의 자식 인덱싱 = 항 단위 청크. 부모(조) 반환은 retriever(ParentDocRetriever) 책임.
+    채점은 hang과 동일(source_uids=[조 uid])."""
+    return chunk_hang(corpus)
 
 
 REGISTRY = {

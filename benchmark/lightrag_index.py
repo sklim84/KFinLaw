@@ -8,25 +8,29 @@ LightRAG 그래프 RAG 색인·검색 (E6)
   python benchmark/lightrag_index.py --smoke   # 2개 법령만(통합 검증)
   python benchmark/lightrag_index.py            # 전체 코퍼스 색인
 """
-import os, sys, json, argparse, asyncio
+import sys
+import argparse
+import asyncio
 import numpy as np
 from pathlib import Path
 
 HERE = Path(__file__).parent
-sys.path.insert(0, str(HERE)); sys.path.insert(0, str(HERE / "pipeline"))
+sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE / "pipeline"))
 from chunkers import build_chunks  # noqa: E402
+from common import CONFIG, DEFAULT_ENDPOINT, load_json  # noqa: E402
 
-CORPUS = json.load(open(HERE / "corpus_ids.json", encoding="utf-8"))
+CORPUS = load_json(HERE / "corpus_ids.json")
 WORKDIR = HERE / "lightrag_storage"
-BASE_URL = "http://localhost:8000/v1"
-LLM_MODEL = "mistralai/Mistral-Small-4-119B-2603"
+BASE_URL = DEFAULT_ENDPOINT
+LLM_MODEL = CONFIG["models"]["generator"]
 
 _kure = None
 def kure():
     global _kure
     if _kure is None:
         from sentence_transformers import SentenceTransformer
-        _kure = SentenceTransformer("nlpai-lab/KURE-v1", device="cuda", trust_remote_code=True)
+        _kure = SentenceTransformer(CONFIG["models"]["embedders"]["kure-v1"], device="cuda", trust_remote_code=True)
     return _kure
 
 
@@ -54,7 +58,7 @@ async def make_rag():
     rag = LightRAG(
         working_dir=str(WORKDIR),
         llm_model_func=llm_func,
-        llm_model_max_async=8,
+        llm_model_max_async=CONFIG["lightrag"]["llm_max_async"],
         embedding_func=EmbeddingFunc(embedding_dim=1024, max_token_size=8192, func=embed_func),
         addon_params={"language": "Korean"},  # 엔티티/관계를 한국어로 추출(영어 추출 방지)
     )
@@ -88,7 +92,7 @@ async def main_async(args):
     print("색인 완료. 샘플 질의 테스트:")
     from lightrag import QueryParam
     q = "금융거래의 비밀보장은 어떻게 규정되어 있나요?"
-    for mode in ["naive", "local", "global", "hybrid", "mix"]:
+    for mode in CONFIG["lightrag"]["modes"]:
         try:
             ctx = await rag.aquery(q, param=QueryParam(mode=mode, only_need_context=True, top_k=10))
             print(f"\n--- mode={mode} (컨텍스트 앞 300자) ---")
