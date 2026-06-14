@@ -5,7 +5,19 @@
 
 `최종 업데이트 2026-06-14`
 
-[개요](#개요) · [현황](#현황) · [핵심 결과](#핵심-결과) · [빠른 시작](#빠른-시작) · [벤치마크 설계](#벤치마크-설계) · [모델·서빙](#모델서빙) · [답변 평가](#답변-평가) · [데이터·구조](#데이터구조) · [References](#references)
+[한눈에](#한눈에--사내-rag-적용-가이드) · [개요](#개요) · [현황](#현황) · [핵심 결과](#핵심-결과) · [빠른 시작](#빠른-시작) · [벤치마크 설계](#벤치마크-설계) · [모델·서빙](#모델서빙) · [답변 평가](#답변-평가) · [데이터·구조](#데이터구조) · [References](#references)
+
+---
+
+## 한눈에 — 사내 RAG 적용 가이드
+
+금융 법령 240문 벤치마크에서 얻은, **사내 규정 RAG에 그대로 옮길 수 있는** 결론:
+
+- ✅ **검색 기본기**: 조/섹션 단위 청킹 + **하이브리드(BM25+KURE) + 리랭커** → recall@5 **0.860** (그림 1). 리랭커가 단일 최대 레버.
+- ✅ **한국어 임베딩**: **KURE-v1** (> KoE5 > BGE-M3). dense는 의미질문, BM25는 명칭·번호·표 어휘에 강함 → 둘을 합친 하이브리드.
+- ❌ **굳이 안 해도 되는 것**: 정교한 증강 3종 모두 baseline 미달 — **HyPE·HyDE(가설 질문/답변)·LightRAG(지식그래프)** (그림 5). "정교한 기법 ≠ 더 나음 → 도입 전 반드시 실측."
+- ✅ **답변모델**: 크기보다 도메인 적합성 — **gemma-4-31B가 Solar-100B·A.X-67B를 능가** (그림 7). 동일 검색·프롬프트에서 실측 비교해 선정.
+- 🧭 **방법론**: 골드셋(LLM 생성 + 일관성 필터) 위에서 **검색→답변 2계층**으로, 변수를 한 번에 하나씩만 바꿔 평가(그림 0).
 
 ---
 
@@ -39,9 +51,8 @@
 
 ## 핵심 결과
 
-검색 실험은 한 번에 한 변수만 바꿔 비교한다 — E1 청킹 · E2 임베딩 · E3 검색기+리랭커 · E4 별표소스 · E5 HyPE · E6 그래프 · E7 HyDE.
-(인용 표기는 본문 곳곳 + 하단 [References](#references).)
-셋업: 코퍼스 32법령(~3,251 청크), 골드셋 240문(factoid·crossref·byeolpyo·multihop 각 60), gold = 조문/별표 uid.
+검색 실험은 변수를 하나씩만 바꿔 비교한다(E1 청킹 · E2 임베딩 · E3 검색기+리랭커 · E4 별표소스 · E5 HyPE · E6 그래프 · E7 HyDE).
+셋업: 코퍼스 32법령(~3,251 청크), 골드셋 240문(유형 4종 각 60), gold = 조문/별표 uid. 본문 인용은 (저자 연도) — 출처는 하단 [References](#references).
 
 **리더보드** — 전체 240문, recall@5 / MRR / nDCG@10
 
@@ -59,8 +70,8 @@
 | LightRAG 그래프 (mix 모드) | 0.665 | 0.606 | 0.616 |
 | 조청킹 + 벡터 + HyDE | 0.652 | 0.558 | 0.572 |
 
-![검색 기법 리더보드](benchmark/figures/F1_retrieval_leaderboard.png)
-> **그림 1.** 검색 기법 리더보드(recall@5). 하이브리드+리랭커가 최적이고, 정교한 증강 기법(HyPE·HyDE·LightRAG, 빨강)은 모두 단순 baseline 아래.
+![검색 기법 리더보드](benchmark/figures/fig_01_leaderboard.png)
+> **그림 1.** 검색 기법 리더보드(recall@5). 하이브리드+리랭커(teal)가 최적이고, 정교한 증강 기법(HyPE·HyDE·LightRAG, 적색)은 모두 단순 baseline 아래.
 
 **실험 요약**
 
@@ -76,12 +87,11 @@
 
 | | |
 |---|---|
-| ![검색기×질문유형](benchmark/figures/F2_retriever_by_type.png) | ![recall@k 곡선](benchmark/figures/F3_recall_at_k.png) |
+| ![청킹 비교](benchmark/figures/fig_02_chunking.png) | ![검색기×질문유형](benchmark/figures/fig_03_by_type.png) |
+| ![recall@k 곡선](benchmark/figures/fig_04_recall_at_k.png) | ![증강 기법 부정 결과](benchmark/figures/fig_05_augmentation.png) |
 
-> **그림 2·3.** (좌) 검색기 × 질문유형 — factoid는 dense, crossref·별표는 BM25가 강함. (우) 컴포넌트 누적 recall@k — 리랭커가 단일 최대 레버.
-
-![증강 기법 부정 결과](benchmark/figures/F4_augmentation_negative.png)
-> **그림 4.** 색인측(HyPE)·질의측(HyDE)·그래프(LightRAG) 증강이 모두 baseline 미달 — "정교한 기법 ≠ 더 나음".
+> **그림 2.** 청킹 단위(E1) — 조(條) 단위가 BM25·벡터 양쪽 최고. &nbsp; **그림 3.** 검색기 × 질문유형 — factoid는 dense, crossref·별표는 BM25가 강함.
+> **그림 4.** 컴포넌트 누적 recall@k — 리랭커가 단일 최대 레버. &nbsp; **그림 5.** 증강 기법(HyPE·HyDE·LightRAG) 모두 baseline 미달 — "정교한 기법 ≠ 더 나음".
 
 <details>
 <summary>검색기 × 질문유형 · 반직관적 발견 · 사내 전이 권고</summary>
@@ -106,8 +116,8 @@
 그래프 증강 모드(local/global/hybrid/mix)가 모두 naive보다 낮다 — 엔티티 그래프가 chunk recall을 오히려 희석. 교차참조·멀티홉에서도 기대한 그래프 이득이 없었다(crossref 최고 0.467 vs BM25 0.750). (LightRAG 자체 청킹 1200자 + uid 역매핑 근사로 일부 과소평가 가능하나, 격차가 커 결론은 견고.)
 
 #### 반직관적 발견
-![격식체 vs 구어체](benchmark/figures/F5_register.png)
-> **그림 5.** 구어체 ≥ 격식체 — 질의측 어휘격차가 작아 HyPE·HyDE 증강이 무의미함을 예측.
+![격식체 vs 구어체](benchmark/figures/fig_06_register.png)
+> **그림 6.** 구어체 ≥ 격식체 — 질의측 어휘격차가 작아 HyPE·HyDE 증강이 무의미함을 예측.
 
 - 구어체 ≥ 격식체로 검색이 더 쉬움 (벡터 KURE: 격식 0.733 vs 구어 1.000) — 구어가 짧고 직접적이라 의미 매칭 용이.
 - 이 결과가 HyPE 무용을 예측한다 — 메울 어휘격차가 없는데 HyPE는 그 격차를 메우는 기법.
@@ -168,14 +178,14 @@ python -m benchmark.answer_runner --answer-model LGAI-EXAONE/EXAONE-4.0-32B \
 
 ```mermaid
 flowchart LR
-  X[법령 XML · 별표 PDF] --> C[코퍼스 32법령<br/>~3,251 청크]
-  C --> G[골드셋 240문<br/>LLM 생성 + 일관성 필터]
-  G --> L1{{레이어1 · 검색 평가}}
-  L1 -->|청킹·임베딩·검색기·리랭커<br/>HyPE·HyDE·LightRAG| M1[recall@k · MRR · nDCG<br/>gold = 조문/별표 uid]
-  M1 -->|최적 config 고정| L2{{레이어2 · 답변 평가}}
-  L2 -->|답변모델 생성 → judge + 인용검증| M2[정확성·충실성·적합성<br/>완결성·맥락활용·인용]
+  X["법령 XML · 별표 PDF"] --> C["코퍼스 32법령 (약 3,251 청크)"]
+  C --> G["골드셋 240문 (LLM 생성 + 일관성 필터)"]
+  G --> L1["레이어1 · 검색 평가"]
+  L1 -->|"청킹 / 임베딩 / 검색기 / 리랭커 / HyPE / HyDE / LightRAG"| M1["검색 지표: recall@k · MRR · nDCG (gold = uid)"]
+  M1 -->|"최적 config 고정"| L2["레이어2 · 답변 평가"]
+  L2 -->|"답변 생성 → judge + 인용검증"| M2["답변 지표: 정확성 · 충실성 · 완결성 · 인용"]
 ```
-> **그림 0.** 방법론 개요. 변수는 한 번에 하나씩만 바꿔(OFAT) 기법별 효과를 격리한다.
+> **그림 0.** 방법론 개요 — 변수는 한 번에 하나씩만 바꿔(OFAT) 기법별 효과를 격리한다.
 
 **코퍼스** — 핵심 금융법 32개(13군). 법↔시행령 멀티홉·별표 조회·교차참조를 모두 평가하도록 통제된 소규모 구성.
 
@@ -268,8 +278,8 @@ judge는 gpt-oss-120b(답변모델과 다른 계열), temp=0. 인용정확도만
 | Qwen/Qwen3.6-27B | 0.64 | 0.65 | 0.70 | 0.62 | 0.65 | 0.63 |
 | upstage/Solar-Open-100B (96B) | 0.64 | 0.65 | 0.72 | 0.64 | 0.66 | 0.52 |
 
-![답변모델 비교](benchmark/figures/F6_answer_models.png)
-> **그림 6.** 답변모델 비교. **gemma-4-31B가 전 메트릭 최상위**이고 A.X-4.0이 근접. **31B가 96B(Solar)·67B(A.X)를 능가** — 모델 크기보다 도메인 적합성이 중요(검색 실험의 "정교≠우위"와 같은 교훈).
+![답변모델 비교](benchmark/figures/fig_07_answer_models.png)
+> **그림 7.** 답변모델 비교. **gemma-4-31B가 전 메트릭 최상위**이고 A.X-4.0이 근접. **31B가 96B(Solar)·67B(A.X)를 능가** — 모델 크기보다 도메인 적합성이 중요(검색 실험의 "정교≠우위"와 같은 교훈).
 
 > **사내 적용 시사**: 답변모델은 무작정 큰 모델이 아니라 한국어·도메인 적합 중형(예: gemma-4-31B급)을 후보로, 동일 검색·프롬프트에서 실측 비교해 선정한다.
 
