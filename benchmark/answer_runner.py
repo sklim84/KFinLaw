@@ -43,22 +43,23 @@ CLOSED_SYS = (
     "확실하지 않으면 모른다고 답하라. JSON으로만 출력: {\"answer\": \"...\"}.")
 
 
-def build_context_retriever(mode, embedder_name):
-    """검색 모드 → (retriever, n_context). none이면 (None, 0)."""
+def build_context_retriever(mode, embedder_name, retriever=None, rerank=None):
+    """검색 모드 → (retriever, n_context). none이면 (None, 0).
+    retriever/rerank를 주면 config(answer_eval.retrieval)를 덮어쓴다(예: Semantic은 vector+rerank)."""
     if mode == "none":
         return None, 0
     byeolpyo = AE["retrieval"]["byeolpyo"]
     if mode == "bad":
         chunks = build_chunks("article", CORPUS, byeolpyo=byeolpyo)
         return build_retriever("bm25", chunks, top_k=1), 1
-    # good: 최적 검색(조청킹 + 하이브리드 + 리랭커)
+    # good: 최적 검색(기본 조청킹 + 하이브리드 + 리랭커, 오버라이드 가능)
     r = AE["retrieval"]
     chunks = build_chunks(r["chunker"], CORPUS, byeolpyo=byeolpyo)
     from benchmark.pipeline.embedders import Embedder
     embedder = Embedder(embedder_name or r["embedder"])
     k = AE["context_top_k"]
-    retr = build_retriever(r["retriever"], chunks, embedder=embedder, top_k=k)
-    if r["rerank"]:
+    retr = build_retriever(retriever or r["retriever"], chunks, embedder=embedder, top_k=k)
+    if r["rerank"] if rerank is None else rerank:
         retr = Reranker(retr, top_k=k)
     return retr, k
 
@@ -147,7 +148,9 @@ def run(args):
         prepared, n_ctx = load_ctx_cache(cache, goldset)
         print(f"  컨텍스트 캐시 로드: {cache.name} ({len(prepared)}문, n_ctx={n_ctx}) — 검색 생략")
     else:
-        retr, n_ctx = build_context_retriever(args.retrieval, args.embedder)
+        ctx_rerank = {"auto": None, "on": True, "off": False}[args.ctx_rerank]
+        retr, n_ctx = build_context_retriever(args.retrieval, args.embedder,
+                                              args.ctx_retriever, ctx_rerank)
         t_r = time.time()
         prepared = build_prepared(retr, n_ctx, goldset, uid_text_map(), cap)
         print(f"  검색 완료 {len(prepared)}문 ({time.time()-t_r:.0f}s)")
@@ -198,7 +201,9 @@ def run(args):
 
     result = {
         "config": {"answer_model": args.answer_model, "judge_model": args.judge_model,
-                   "retrieval": args.retrieval, "n_context": n_ctx},
+                   "retrieval": args.retrieval, "n_context": n_ctx,
+                   "ctx_retriever": args.ctx_retriever or AE["retrieval"]["retriever"],
+                   "ctx_rerank": args.ctx_rerank, "goldset": Path(args.goldset).name},
         "n_questions": len(goldset),
         "overall": AM.aggregate(per_q),
         "by_type": {t: AM.aggregate(v) for t, v in per_type.items()},
@@ -253,6 +258,11 @@ def main():
                     help="컨텍스트 캐시만 생성하고 종료(답변모델 불필요)")
     ap.add_argument("--goldset", default=str(HERE / "goldset" / "questions.jsonl"))
     ap.add_argument("--out", default=str(HERE / "reports"))
+    ap.add_argument("--ctx-retriever", default=None,
+                    help="검색 컨텍스트 retriever 오버라이드(예: vector). 미지정 시 config")
+    ap.add_argument("--ctx-rerank", default="auto", choices=["auto", "on", "off"],
+                    help="컨텍스트 리랭커 오버라이드(auto=config)")
+    ap.add_argument("--label", default=None, help="리포트 파일명 접미사(예: semantic)")
     args = ap.parse_args()
 
     result = run(args)
@@ -261,7 +271,8 @@ def main():
     print_report(result)
     Path(args.out).mkdir(parents=True, exist_ok=True)
     safe = args.answer_model.replace("/", "_")
-    fp = Path(args.out) / f"answer_{safe}_{args.retrieval}.json"
+    suffix = f"_{args.label}" if args.label else ""
+    fp = Path(args.out) / f"answer_{safe}_{args.retrieval}{suffix}.json"
     json.dump(result, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     print(f"\n저장: {fp}")
 
