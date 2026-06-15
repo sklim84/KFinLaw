@@ -16,10 +16,10 @@ from pathlib import Path
 from benchmark.pipeline.chunkers import build_chunks
 from benchmark.eval import retrieval_metrics as RM
 from benchmark import lightrag_index as LI
-from benchmark.common import LIGHTRAG_MODES, load_jsonl, CONFIG
+from benchmark.common import LIGHTRAG_MODES, load_jsonl, load_json, CONFIG
 
 HERE = Path(__file__).parent
-CORPUS = json.load(open(HERE / "corpus_ids.json", encoding="utf-8"))
+CORPUS = load_json(HERE / "corpus_ids.json")
 
 
 def text2uid_map():
@@ -55,6 +55,7 @@ async def eval_mode(rag, mode, goldset, t2u, top_k=10, concurrency=None):
     from lightrag import QueryParam
     concurrency = concurrency or CONFIG["lightrag"]["llm_max_async"]
     sem = asyncio.Semaphore(concurrency)
+    errors = {"n": 0}
 
     async def one(q):
         async with sem:
@@ -64,11 +65,13 @@ async def eval_mode(rag, mode, goldset, t2u, top_k=10, concurrency=None):
                                                         top_k=top_k, chunk_top_k=top_k,
                                                         enable_rerank=False))
             except Exception:
-                ctx = ""
+                ctx = ""; errors["n"] += 1   # 질의 실패는 recall 0 처리하되, 무더기 실패는 드러나도록 집계
         ranked = [{"source_uids": [u]} for u in parse_chunk_uids(str(ctx), t2u)]
         return RM.evaluate(ranked, q["gold_ids"]), q["type"]
 
     out = await asyncio.gather(*[one(q) for q in goldset])
+    if errors["n"]:
+        print(f"  [경고] mode={mode}: 질의 {errors['n']}/{len(goldset)} 실패(ctx 빈값 처리)")
     per_type = defaultdict(list)
     per_q = [m for m, _ in out]
     for m, t in out:

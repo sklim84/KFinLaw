@@ -71,7 +71,7 @@ def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=
 
     result = {
         "config": {"chunker": chunker, "retriever": retriever_kind, "embedder": embedder_name,
-                   "byeolpyo": byeolpyo, "rerank": rerank, "hyde": hyde},
+                   "byeolpyo": byeolpyo, "rerank": rerank, "hype": hype, "hyde": hyde},
         "n_chunks": len(chunks), "n_questions": len(goldset),
         "overall": RM.aggregate(per_q),
         "by_type": {t: RM.aggregate(v) for t, v in per_type.items()},
@@ -123,6 +123,9 @@ def main():
 
     goldset = load_goldset(args.goldset)
     print(f"골드셋: {len(goldset)}문 ({args.goldset})")
+    if args.hyde and args.retriever not in ("vector", "hybrid"):
+        print(f"  [경고] --hyde는 dense 기저(vector/hybrid)를 가정한다. 현재 retriever={args.retriever} → "
+              "가설답변을 어휘검색에 넣게 되어 의미가 약하다.")
     result = run_one(args.chunker, args.retriever, args.embedder, goldset, args.top_k,
                      args.byeolpyo, args.rerank, args.hype, args.hyde, args.hyde_cache)
     print_report(result)

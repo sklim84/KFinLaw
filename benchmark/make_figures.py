@@ -284,10 +284,8 @@ def f8_lowoverlap():
         ax.plot([ov, lo], [i, i], color=lc, lw=2.2, zorder=1, alpha=0.7)
         ax.scatter(ov, i, color=BASE, s=70, zorder=3, edgecolor="white", linewidth=0.8)
         ax.scatter(lo, i, color=lc, s=70, zorder=3, edgecolor="white", linewidth=0.8)
-        ax.text(min(ov, lo) - 0.012, i, f"{lo:.2f}" if lo < ov else f"{ov:.2f}",
-                va="center", ha="right", fontsize=8, color=INK)
-        ax.text(max(ov, lo) + 0.012, i, f"{ov:.2f}" if lo < ov else f"{lo:.2f}",
-                va="center", ha="left", fontsize=8, color=INK)
+        ax.text(min(ov, lo) - 0.012, i, f"{min(ov, lo):.2f}", va="center", ha="right", fontsize=8, color=INK)
+        ax.text(max(ov, lo) + 0.012, i, f"{max(ov, lo):.2f}", va="center", ha="left", fontsize=8, color=INK)
     ax.set_yticks(y, labels=labels)
     ax.set_xlim(0.45, 0.92)
     ax.set_xlabel("recall@5 (240문)")

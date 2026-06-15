@@ -44,8 +44,7 @@ from benchmark.common import (CTX_CHARS, DEFAULT_ENDPOINT, CONFIG, load_json,
 
 HERE = Path(__file__).parent
 CORPUS = load_json(HERE.parent / "corpus_ids.json")
-OUT = HERE / "questions.jsonl"
-RNG = random.Random(42)  # 재현성
+RNG = random.Random(42)  # 재현성 (출력 경로는 모드에 따라 main에서 결정)
 
 
 # ---------- 일관성(round-trip) 필터 (모델 불필요, 오염 없음) ----------
