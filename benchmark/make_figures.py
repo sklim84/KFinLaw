@@ -257,6 +257,47 @@ def f5_register():
     save(fig, "fig_07_register.png")
 
 
+# ===== F8. 어휘중첩 편향 검증 — 원본 vs 저어휘중첩 (dumbbell) =====
+def f8_lowoverlap():
+    # (라벨, 원본리포트, 저중첩리포트)
+    rows = [
+        ("BM25 (어휘)",            "article_bm25_byp-md",                       "article_bm25_byp-md_lowoverlap"),
+        ("벡터 KURE (dense)",      "article_vector_kure-v1",                    "article_vector_kure-v1_byp-md_lowoverlap"),
+        ("하이브리드 (RRF)",       "article_hybrid_kure-v1",                    "article_hybrid_kure-v1_byp-md_lowoverlap"),
+        ("하이브리드+리랭커",      "article_hybrid_kure-v1_rerank",             "article_hybrid_kure-v1_rerank_byp-md_lowoverlap"),
+        ("벡터+리랭커",            "article_vector_kure-v1_rerank",             "article_vector_kure-v1_rerank_byp-md_lowoverlap"),
+        ("HyPE (색인측)",          "article_bm25_kure-v1_hype",                 "article_bm25_kure-v1_hype_byp-md_lowoverlap"),
+        ("HyDE (벡터)",            "article_vector_kure-v1_hyde_byp-md",        "article_vector_kure-v1_hyde_byp-md_lowoverlap"),
+        ("HyDE (하이브리드+리랭커)", "article_hybrid_kure-v1_hyde_rerank_byp-md", "article_hybrid_kure-v1_hyde_rerank_byp-md_lowoverlap"),
+    ]
+    data = [(lab, rpt(f"{o}.json")["overall"]["recall@5"], rpt(f"{l}.json")["overall"]["recall@5"])
+            for lab, o, l in rows]
+    data.sort(key=lambda r: r[1])  # 원본 기준 오름차순(위가 높음)
+    labels = [d[0] for d in data]
+    y = np.arange(len(labels))
+    fig, ax = plt.subplots(figsize=(8.2, 4.8))
+    ax.set_axisbelow(True)
+    ax.grid(axis="x", color="#ececec", lw=0.7)
+    for i, (_, ov, lo) in enumerate(data):
+        drop = ov - lo
+        lc = AUG if drop > 0.02 else BEST  # 하락 큰 건 brick, 강건(거의 변화없음)은 teal
+        ax.plot([ov, lo], [i, i], color=lc, lw=2.2, zorder=1, alpha=0.7)
+        ax.scatter(ov, i, color=BASE, s=70, zorder=3, edgecolor="white", linewidth=0.8)
+        ax.scatter(lo, i, color=lc, s=70, zorder=3, edgecolor="white", linewidth=0.8)
+        ax.text(min(ov, lo) - 0.012, i, f"{lo:.2f}" if lo < ov else f"{ov:.2f}",
+                va="center", ha="right", fontsize=8, color=INK)
+        ax.text(max(ov, lo) + 0.012, i, f"{ov:.2f}" if lo < ov else f"{lo:.2f}",
+                va="center", ha="left", fontsize=8, color=INK)
+    ax.set_yticks(y, labels=labels)
+    ax.set_xlim(0.45, 0.92)
+    ax.set_xlabel("recall@5 (240문)")
+    ax.legend(handles=[Patch(color=BASE, label="Lexical Benchmark"),
+                       Patch(color=AUG, label="Semantic Benchmark (하락)"),
+                       Patch(color=BEST, label="Semantic Benchmark (강건)")],
+              loc="lower right", fontsize=8.5, frameon=True, edgecolor="#dddddd")
+    save(fig, "fig_08_lowoverlap.png")
+
+
 # ===== F6. 답변모델 비교 (heatmap) =====
 def f6_answer_models():
     metrics = ["correctness", "faithfulness", "relevancy", "completeness", "context_utilization", "cite_f1"]
@@ -303,4 +344,5 @@ if __name__ == "__main__":
     f4_augmentation()
     f5_register()
     f6_answer_models()
+    f8_lowoverlap()
     print("\n모든 figure 생성 완료 →", FIG)

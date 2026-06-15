@@ -18,6 +18,17 @@
   # 1차 검색용(일관성 필터만, judge 생략):
   python -m benchmark.goldset.build_goldset --base-url ... --model ... --no-judge
   python -m benchmark.goldset.build_goldset --smoke
+
+Semantic Benchmark 모드(--lowoverlap): HyPE/HyDE 부정 결과의 '일반화 가능성' 검증용 대조셋.
+  - 기본 모드 = Lexical Benchmark(questions.jsonl): 조문 용어가 그대로 들어가 어휘중첩이 큼.
+  - --lowoverlap = Semantic Benchmark(questions_lowoverlap.jsonl): 일상어로 풀어 어휘중첩이 작음
+    (lowoverlap = low lexical overlap, 생성 방식을 가리키는 코드 식별자).
+  기본 골드셋은 (a) 조문에서 생성돼 핵심 용어가 새고 (b) BM25 일관성 필터로 어휘중첩 큰 질문만
+  채택돼 lexical 검색에 유리하게 편향됨. --lowoverlap은 검색기 무관하게:
+    ① 법령명·조문번호·고유 전문용어를 빼고 일상어로 풀어 묻게 생성(쌍 없이 유형당 단일 질문)
+    ② 결정론적 어휘중첩 필터 — 질문이 정답 조문의 '희소 4-gram'을 재사용하면 폐기(judge·일관성 미사용)
+  산출: questions_lowoverlap.jsonl
+  python -m benchmark.goldset.build_goldset --lowoverlap --reasoning-effort none
 """
 import json
 import re
@@ -56,6 +67,28 @@ def build_consistency(retriever_kind="bm25", k=10):
     return passes
 
 
+# ---------- 어휘중첩(용어 누출) 필터 — --lowoverlap 전용, 검색기 무관·결정론적 ----------
+def kgrams(text, n=4):
+    s = re.sub(r"[^가-힣]", "", text)              # 한글만 남겨 josa·띄어쓰기 영향 제거
+    return {s[i:i + n] for i in range(len(s) - n + 1)}
+
+
+def build_df(corpus):
+    """코퍼스 청크별 4-gram 집합 → 문서빈도(DF). 희소 4-gram = 특정 조문에만 나오는 '앵커'."""
+    from benchmark.pipeline.chunkers import build_chunks
+    df = Counter()
+    for c in build_chunks("article", corpus, byeolpyo="md"):
+        for g in kgrams(c["text"]):
+            df[g] += 1
+    return df
+
+
+def leaks_anchor(question, chunk_text, df, max_df=5):
+    """질문이 정답 조문의 '희소(DF<=max_df) 4-gram'을 재사용하면 True(=용어 누출, 폐기)."""
+    shared = kgrams(question) & kgrams(chunk_text)
+    return any(df.get(g, 0) <= max_df for g in shared)
+
+
 # ---------- LLM 클라이언트·JSON 파서는 common(llm_chat/parse_json)에서 공유 ----------
 
 
@@ -81,6 +114,20 @@ TYPE_HINT = {
     "multihop": "이 조문이 대통령령 등 하위법령에 위임한 사항을 묻는 질문.",
 }
 
+# --lowoverlap 전용: 고유 용어를 빼고 일상어로 풀어 묻게 하는 생성 프롬프트.
+GEN_SYS_LO = (
+    "당신은 한국 금융 법령 전문가다. 주어진 조문(또는 별표)만 근거로, 그 내용을 찾아봐야만 답할 수 있는 "
+    "질문 1개와 간결한 정답을 만든다. 단 질문은 **일반인이 상황을 일상어로 설명하듯** 쓰고, "
+    "**법령명·조문번호, 그리고 그 조문에만 나오는 고유 전문용어/정식 명칭을 절대 그대로 쓰지 말 것**. "
+    "그런 용어는 일상적 표현으로 풀어 쓴다 (예: '예금보험기금채권상환특별기여금'→'예금보험 관련 부담금', "
+    "'부가통신업자'→'결제 중계 사업자'). JSON으로만: {\"question\": \"...\", \"answer\": \"...\"}.")
+TYPE_HINT_LO = {
+    "factoid": "정의·요건·기준 등 사실 관계를 상황으로 풀어 묻는 질문.",
+    "crossref": "이 조문이 다른 법령/제도와 어떻게 연결되는지를 상황으로 묻는 질문.",
+    "byeolpyo": "별표의 구체적 수치·기준·항목 값을 상황으로 묻는 질문.",
+    "multihop": "이 조문이 하위법령(대통령령 등)에 위임한 사항을 상황으로 묻는 질문.",
+}
+
 JUDGE_SYS = (
     "골드셋 품질 심사관이다. 다음 두 가지를 판정한다: "
     "(1) grounded: '정답'이 '근거 텍스트'에 명시적으로 들어 있는가. "
@@ -90,12 +137,15 @@ JUDGE_SYS = (
     "{\"grounded\": true/false, \"needs_context\": true/false, \"reason\": \"...\"}.")
 
 
-def gen_qa(base_url, model, qtype, context, label, reasoning_effort=None):
+def gen_qa(base_url, model, qtype, context, label, reasoning_effort=None, lowoverlap=False):
     # temp=0: 골드셋을 완전 재현 가능하게(벤치마크 안정성). 질문 다양성은 수천 개
     # 서로 다른 조문에서 확보되므로 샘플링 온도에 의존하지 않음.
-    user = (f"[질문 유형] {TYPE_HINT[qtype]}\n\n[근거 {label}]\n{context[:CTX_CHARS]}\n\n"
-            "위 근거만으로 답할 수 있는 질문과 정답을 JSON으로 생성하라.")
-    return parse_json(chat(base_url, model, GEN_SYS, user, temperature=0.0,
+    sysmsg = GEN_SYS_LO if lowoverlap else GEN_SYS
+    hint = (TYPE_HINT_LO if lowoverlap else TYPE_HINT)[qtype]
+    tail = ("위 근거로 답할 수 있는, 고유 용어를 쓰지 않은 일상어 질문과 정답을 JSON으로 생성하라."
+            if lowoverlap else "위 근거만으로 답할 수 있는 질문과 정답을 JSON으로 생성하라.")
+    user = f"[질문 유형] {hint}\n\n[근거 {label}]\n{context[:CTX_CHARS]}\n\n{tail}"
+    return parse_json(chat(base_url, model, sysmsg, user, temperature=0.0,
                            reasoning_effort=reasoning_effort))
 
 
@@ -188,42 +238,56 @@ def main():
     ap.add_argument("--no-consistency", action="store_true")
     ap.add_argument("--ck", type=int, default=CONFIG["goldset"]["consistency_top_k"],
                     help="일관성 필터 top-k")
+    # 저어휘중첩 split: 일상어 생성 + 4-gram DF 누출 필터(judge·일관성 미사용), 별도 파일로 저장
+    ap.add_argument("--lowoverlap", action="store_true",
+                    help="저어휘중첩 모드(어휘격차 큰 질의셋, questions_lowoverlap.jsonl)")
+    ap.add_argument("--max-df", type=int, default=5, help="lowoverlap 희소 4-gram 판정 DF 상한")
     args = ap.parse_args()
     if args.smoke:
         args.per_type = 2
 
+    out = HERE / ("questions_lowoverlap.jsonl" if args.lowoverlap else "questions.jsonl")
     judge_url = args.judge_base_url or args.base_url
     judge_model = args.judge_model or args.model
-    if not args.no_judge and judge_model == args.model:
+    if not args.lowoverlap and not args.no_judge and judge_model == args.model:
         print("  [경고] judge 모델이 생성기와 동일 → preference leakage 위험. "
               "--judge-model로 다른 계열 분리 권장(또는 --no-judge로 일관성 필터만 사용).")
 
-    passes = None if args.no_consistency else build_consistency(k=args.ck)
+    # lowoverlap은 검색기 무관 4-gram 필터만 사용(judge·일관성 비활성). 그 외는 일관성 필터(기본 ON).
+    df = build_df(CORPUS) if args.lowoverlap else None
+    passes = None if (args.no_consistency or args.lowoverlap) else build_consistency(k=args.ck)
     pools = build_pools()
     print("단위 풀:", {k: len(v) for k, v in pools.items()})
-    print(f"생성기={args.model} | judge={'OFF' if args.no_judge else judge_model} | "
-          f"일관성필터={'OFF' if args.no_consistency else 'BM25@'+str(args.ck)}")
+    if args.lowoverlap:
+        print(f"생성기={args.model} | 모드=lowoverlap | 누출필터=4gram-DF<={args.max_df} "
+              f"(DF 종류 {len(df)})")
+    else:
+        print(f"생성기={args.model} | judge={'OFF' if args.no_judge else judge_model} | "
+              f"일관성필터={'OFF' if args.no_consistency else 'BM25@'+str(args.ck)}")
 
     results = []
     counter = {"n": 0}
-    stats = {"gen_fail": 0, "judge_drop": 0, "consistency_drop": 0}
+    stats = {"gen_fail": 0, "judge_drop": 0, "consistency_drop": 0, "overlap_drop": 0}
 
+    idpfx = "lo" if args.lowoverlap else "q"
     def emit(question, answer, gold, qtype, lawname, register="formal", pair_id=None):
         counter["n"] += 1
-        results.append({"id": f"q{counter['n']:04d}", "question": question.strip(),
+        results.append({"id": f"{idpfx}{counter['n']:04d}", "question": question.strip(),
                         "answer": answer.strip(), "gold_ids": gold, "type": qtype,
                         "register": register, "pair_id": pair_id, "법령명": lawname})
 
+    pair_mode = not args.lowoverlap   # lowoverlap은 쌍 없이 유형당 단일 질문
     for qtype, pool in pools.items():
-        RNG.shuffle(pool)
+        # 재현성: 표준 모드는 공유 RNG(연속), lowoverlap은 유형별 독립 시드(기존 산출물과 동일)
+        (random.Random(42).shuffle if args.lowoverlap else RNG.shuffle)(pool)
         picked = 0
         # factoid는 격식체+구어체 쌍 생성 → per_type을 절반(쌍 수)으로 잡아 질문 총량 균형
-        target = max(1, args.per_type // 2) if qtype == "factoid" else args.per_type
+        target = max(1, args.per_type // 2) if (qtype == "factoid" and pair_mode) else args.per_type
         for unit in pool:
             if picked >= target:
                 break
-            # ---- factoid: 격식↔구어 쌍 ----
-            if qtype == "factoid":
+            # ---- factoid: 격식↔구어 쌍 (표준 모드만) ----
+            if qtype == "factoid" and pair_mode:
                 ctx = article_context(unit)
                 pair = gen_pair(args.base_url, args.model, ctx, args.reasoning_effort)
                 if not (pair and pair.get("formal") and pair.get("colloquial") and pair.get("answer")):
@@ -254,30 +318,37 @@ def main():
                 ctx = (f"[근거1·본법]\n{article_context(base)}\n\n"
                        f"[근거2·시행령]\n{article_context(impl)}")
                 gold = [base.uid, impl.uid]; lawname = base.법령명; label = "본법+시행령"
-            else:  # crossref
+            else:  # crossref / (lowoverlap의) factoid
                 ctx = article_context(unit); gold = [unit.uid]; lawname = unit.법령명; label = "조문"
-            qa = gen_qa(args.base_url, args.model, qtype, ctx, label, args.reasoning_effort)
+            qa = gen_qa(args.base_url, args.model, qtype, ctx, label, args.reasoning_effort,
+                        lowoverlap=args.lowoverlap)
             if not qa or not qa.get("question") or not qa.get("answer"):
                 stats["gen_fail"] += 1
                 continue
-            if not args.no_judge and not judge_qa(judge_url, judge_model,
-                                                  qa["question"], qa["answer"], ctx,
-                                                  args.judge_reasoning_effort):
-                stats["judge_drop"] += 1
-                continue
-            if passes and not passes(qa["question"], gold):
-                stats["consistency_drop"] += 1
-                continue
-            emit(qa["question"], qa["answer"], gold, qtype, lawname)
+            if args.lowoverlap:
+                if leaks_anchor(qa["question"], ctx, df, args.max_df):  # 용어 누출 → 폐기
+                    stats["overlap_drop"] += 1
+                    continue
+            else:
+                if not args.no_judge and not judge_qa(judge_url, judge_model,
+                                                      qa["question"], qa["answer"], ctx,
+                                                      args.judge_reasoning_effort):
+                    stats["judge_drop"] += 1
+                    continue
+                if passes and not passes(qa["question"], gold):
+                    stats["consistency_drop"] += 1
+                    continue
+            emit(qa["question"], qa["answer"], gold, qtype, lawname,
+                 register="lowoverlap" if args.lowoverlap else "formal")
             picked += 1
             if counter["n"] % 10 == 0:
                 print(f"  생성 {counter['n']} (유형 {qtype} {picked}/{target})")
             time.sleep(0.05)
 
-    with open(OUT, "w", encoding="utf-8") as f:
+    with open(out, "w", encoding="utf-8") as f:
         for r in results:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    print(f"\n=== 골드셋 {len(results)}문 저장: {OUT} ===")
+    print(f"\n=== 골드셋 {len(results)}문 저장: {out} ===")
     print("유형별:", dict(Counter(r["type"] for r in results)))
     print("register별:", dict(Counter(r["register"] for r in results)))
     print("드롭:", stats)

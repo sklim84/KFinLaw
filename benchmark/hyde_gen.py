@@ -40,11 +40,14 @@ def main():
     ap.add_argument("--model", default=CONFIG["models"]["generator"])
     ap.add_argument("--reasoning-effort", default="none")
     ap.add_argument("--workers", type=int, default=CONFIG["hype"]["workers"])
+    ap.add_argument("--goldset", default=str(GOLD))
+    ap.add_argument("--out", default=str(OUT))
     args = ap.parse_args()
+    out = Path(args.out)
 
-    goldset = load_jsonl(GOLD)
+    goldset = load_jsonl(args.goldset)
     questions = sorted({q["question"] for q in goldset})
-    cache = json.load(open(OUT, encoding="utf-8")) if OUT.exists() else {}
+    cache = json.load(open(out, encoding="utf-8")) if out.exists() else {}
     todo = [q for q in questions if q not in cache]
     print(f"질문 {len(questions)} | 생성 대상 {len(todo)} | workers {args.workers}")
 
@@ -62,9 +65,9 @@ def main():
         for q, doc in ex.map(work, todo):
             cache[q] = doc
 
-    json.dump(cache, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    json.dump(cache, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     empty = sum(1 for v in cache.values() if not v)
-    print(f"\n=== HyDE 캐시 저장: {OUT} ({len(cache)}개, 빈 응답 {empty}) ===")
+    print(f"\n=== HyDE 캐시 저장: {out} ({len(cache)}개, 빈 응답 {empty}) ===")
 
 
 if __name__ == "__main__":

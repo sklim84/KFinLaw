@@ -16,7 +16,7 @@ from pathlib import Path
 from benchmark.pipeline.chunkers import build_chunks
 from benchmark.eval import retrieval_metrics as RM
 from benchmark import lightrag_index as LI
-from benchmark.common import LIGHTRAG_MODES, load_jsonl
+from benchmark.common import LIGHTRAG_MODES, load_jsonl, CONFIG
 
 HERE = Path(__file__).parent
 CORPUS = json.load(open(HERE / "corpus_ids.json", encoding="utf-8"))
@@ -50,30 +50,37 @@ def parse_chunk_uids(context, t2u):
     return uids
 
 
-async def eval_mode(rag, mode, goldset, t2u, top_k=10):
+async def eval_mode(rag, mode, goldset, t2u, top_k=10, concurrency=None):
+    # 질의 동시 실행(semaphore) → vLLM 배칭 활용(직렬 1req 대비 대폭 가속). 결과는 동일.
     from lightrag import QueryParam
+    concurrency = concurrency or CONFIG["lightrag"]["llm_max_async"]
+    sem = asyncio.Semaphore(concurrency)
+
+    async def one(q):
+        async with sem:
+            try:
+                ctx = await rag.aquery(q["question"],
+                                       param=QueryParam(mode=mode, only_need_context=True,
+                                                        top_k=top_k, chunk_top_k=top_k,
+                                                        enable_rerank=False))
+            except Exception:
+                ctx = ""
+        ranked = [{"source_uids": [u]} for u in parse_chunk_uids(str(ctx), t2u)]
+        return RM.evaluate(ranked, q["gold_ids"]), q["type"]
+
+    out = await asyncio.gather(*[one(q) for q in goldset])
     per_type = defaultdict(list)
-    per_q = []
-    for q in goldset:
-        try:
-            ctx = await rag.aquery(q["question"],
-                                   param=QueryParam(mode=mode, only_need_context=True,
-                                                    top_k=top_k, chunk_top_k=top_k,
-                                                    enable_rerank=False))
-        except Exception:
-            ctx = ""
-        ranked_uids = parse_chunk_uids(str(ctx), t2u)
-        ranked = [{"source_uids": [u]} for u in ranked_uids]   # 메트릭 형식
-        m = RM.evaluate(ranked, q["gold_ids"])
-        per_q.append(m); per_type[q["type"]].append(m)
+    per_q = [m for m, _ in out]
+    for m, t in out:
+        per_type[t].append(m)
     return RM.aggregate(per_q), {t: RM.aggregate(v) for t, v in per_type.items()}
 
 
 async def main_async(args):
     rag = await LI.make_rag()
     t2u = text2uid_map()
-    goldset = load_jsonl(HERE / "goldset" / "questions.jsonl")
-    print(f"골드셋 {len(goldset)}문 | 청크맵 {len(t2u)}")
+    goldset = load_jsonl(args.goldset)
+    print(f"골드셋 {len(goldset)}문 ({args.goldset}) | 청크맵 {len(t2u)}")
     modes = {}
     for mode in args.modes:
         overall, by_type = await eval_mode(rag, mode, goldset, t2u, args.top_k)
@@ -88,7 +95,7 @@ async def main_async(args):
     # 결과 JSON 저장 (retrieval_runner와 동일하게 reports/에 기록)
     reports = HERE / "reports"
     reports.mkdir(parents=True, exist_ok=True)
-    fp = reports / "lightrag_eval.json"
+    fp = reports / (args.out or "lightrag_eval.json")
     out = {"experiment": "E6_lightrag", "n_questions": len(goldset),
            "top_k": args.top_k, "modes": modes}
     json.dump(out, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
@@ -99,6 +106,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--modes", nargs="+", default=LIGHTRAG_MODES)
     ap.add_argument("--top-k", type=int, default=10)
+    ap.add_argument("--goldset", default=str(HERE / "goldset" / "questions.jsonl"))
+    ap.add_argument("--out", default=None, help="리포트 파일명(기본 lightrag_eval.json)")
     args = ap.parse_args()
     asyncio.run(main_async(args))
 

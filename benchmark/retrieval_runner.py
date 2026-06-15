@@ -24,7 +24,7 @@ load_goldset = load_jsonl
 
 
 def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=None,
-            rerank=False, hype=False, hyde=False):
+            rerank=False, hype=False, hyde=False, hyde_cache=None):
     t0 = time.time()
     chunks = build_chunks(chunker, CORPUS, byeolpyo=byeolpyo)
     t_chunk = time.time() - t0
@@ -51,7 +51,7 @@ def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=
     if hyde:
         # HyDE(질의측): 질문 대신 LLM 가설답변을 임베딩. dense(vector/hybrid) 위에 래핑
         from benchmark.pipeline.retrievers import HyDERetriever
-        hd = load_json(HERE / "hyde_cache.json")
+        hd = load_json(hyde_cache or HERE / "hyde_cache.json")
         retr = HyDERetriever(retr, hd, top_k=top_k)
     if rerank:
         from benchmark.pipeline.retrievers import Reranker
@@ -115,6 +115,8 @@ def main():
     ap.add_argument("--byeolpyo", default=None, choices=[None, "md", "plain"],
                     help="별표 청크 포함 여부/소스 (byeolpyo 유형 질문 평가 시 필요)")
     ap.add_argument("--goldset", default=str(HERE / "goldset" / "questions.jsonl"))
+    ap.add_argument("--hyde-cache", default=None, help="HyDE 캐시 경로(기본 hyde_cache.json)")
+    ap.add_argument("--label", default=None, help="리포트 파일명 접미사(예: lowoverlap)")
     ap.add_argument("--top-k", type=int, default=CONFIG["retrieval"]["top_k"])
     ap.add_argument("--out", default=str(HERE / "reports"))
     args = ap.parse_args()
@@ -122,7 +124,7 @@ def main():
     goldset = load_goldset(args.goldset)
     print(f"골드셋: {len(goldset)}문 ({args.goldset})")
     result = run_one(args.chunker, args.retriever, args.embedder, goldset, args.top_k,
-                     args.byeolpyo, args.rerank, args.hype, args.hyde)
+                     args.byeolpyo, args.rerank, args.hype, args.hyde, args.hyde_cache)
     print_report(result)
 
     Path(args.out).mkdir(parents=True, exist_ok=True)
@@ -130,7 +132,8 @@ def main():
            + (f"_{args.embedder}" if args.retriever in ("vector", "hybrid") or args.hype or args.hyde else "")
            + ("_hype" if args.hype else "") + ("_hyde" if args.hyde else "")
            + ("_rerank" if args.rerank else "")
-           + (f"_byp-{args.byeolpyo}" if args.byeolpyo else ""))
+           + (f"_byp-{args.byeolpyo}" if args.byeolpyo else "")
+           + (f"_{args.label}" if args.label else ""))
     fp = Path(args.out) / f"{tag}.json"
     json.dump(result, open(fp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     print(f"\n저장: {fp}")
