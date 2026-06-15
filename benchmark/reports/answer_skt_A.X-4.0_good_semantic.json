@@ -1,0 +1,83 @@
+{
+  "config": {
+    "answer_model": "skt/A.X-4.0",
+    "judge_model": "openai/gpt-oss-120b",
+    "retrieval": "good",
+    "n_context": 5,
+    "ctx_retriever": "hybrid",
+    "ctx_rerank": "auto",
+    "goldset": "questions_lowoverlap.jsonl"
+  },
+  "n_questions": 240,
+  "overall": {
+    "cite_f1": 0.5583333333333333,
+    "cite_hit": 0.7166666666666667,
+    "context_utilization": 0.7052083333333333,
+    "cite_recall": 0.6541666666666667,
+    "cite_precision": 0.5436805555555555,
+    "relevancy": 0.7729166666666667,
+    "completeness": 0.6447916666666667,
+    "correctness": 0.65,
+    "faithfulness": 0.68125
+  },
+  "by_type": {
+    "factoid": {
+      "cite_f1": 0.615,
+      "cite_hit": 0.7666666666666667,
+      "context_utilization": 0.8666666666666667,
+      "cite_recall": 0.7666666666666667,
+      "cite_precision": 0.5525,
+      "relevancy": 0.8958333333333334,
+      "completeness": 0.825,
+      "correctness": 0.85,
+      "faithfulness": 0.8583333333333333
+    },
+    "crossref": {
+      "cite_f1": 0.5561111111111111,
+      "cite_hit": 0.7,
+      "context_utilization": 0.725,
+      "cite_recall": 0.7,
+      "cite_precision": 0.49583333333333335,
+      "relevancy": 0.7958333333333333,
+      "completeness": 0.6375,
+      "correctness": 0.6291666666666667,
+      "faithfulness": 0.675
+    },
+    "byeolpyo": {
+      "cite_f1": 0.4255555555555555,
+      "cite_hit": 0.5666666666666667,
+      "context_utilization": 0.5208333333333334,
+      "cite_recall": 0.5666666666666667,
+      "cite_precision": 0.3652777777777778,
+      "relevancy": 0.6,
+      "completeness": 0.49166666666666664,
+      "correctness": 0.44166666666666665,
+      "faithfulness": 0.4666666666666667
+    },
+    "multihop": {
+      "cite_f1": 0.6366666666666667,
+      "cite_hit": 0.8333333333333334,
+      "context_utilization": 0.7083333333333334,
+      "cite_recall": 0.5833333333333334,
+      "cite_precision": 0.7611111111111111,
+      "relevancy": 0.8,
+      "completeness": 0.625,
+      "correctness": 0.6791666666666667,
+      "faithfulness": 0.725
+    }
+  },
+  "by_register": {
+    "lowoverlap": {
+      "cite_f1": 0.5583333333333333,
+      "cite_hit": 0.7166666666666667,
+      "context_utilization": 0.7052083333333333,
+      "cite_recall": 0.6541666666666667,
+      "cite_precision": 0.5436805555555555,
+      "relevancy": 0.7729166666666667,
+      "completeness": 0.6447916666666667,
+      "correctness": 0.65,
+      "faithfulness": 0.68125
+    }
+  },
+  "timing_s": 320.2
+}
