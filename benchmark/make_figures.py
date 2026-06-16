@@ -279,19 +279,16 @@ def f8_lowoverlap():
     ax.set_axisbelow(True)
     ax.grid(axis="x", color="#ececec", lw=0.7)
     for i, (_, ov, lo) in enumerate(data):
-        drop = ov - lo
-        lc = AUG if drop > 0.02 else BEST  # 하락 큰 건 brick, 강건(거의 변화없음)은 teal
-        ax.plot([ov, lo], [i, i], color=lc, lw=2.2, zorder=1, alpha=0.7)
+        ax.plot([ov, lo], [i, i], color="#c9ccd1", lw=2.0, zorder=1)   # 중립 연결선(길이=변화 크기)
         ax.scatter(ov, i, color=BASE, s=70, zorder=3, edgecolor="white", linewidth=0.8)
-        ax.scatter(lo, i, color=lc, s=70, zorder=3, edgecolor="white", linewidth=0.8)
+        ax.scatter(lo, i, color=AUG, s=70, zorder=3, edgecolor="white", linewidth=0.8)
         ax.text(min(ov, lo) - 0.012, i, f"{min(ov, lo):.2f}", va="center", ha="right", fontsize=8, color=INK)
         ax.text(max(ov, lo) + 0.012, i, f"{max(ov, lo):.2f}", va="center", ha="left", fontsize=8, color=INK)
     ax.set_yticks(y, labels=labels)
     ax.set_xlim(0.45, 0.92)
     ax.set_xlabel("recall@5 (240문)")
     ax.legend(handles=[Patch(color=BASE, label="Lexical Benchmark"),
-                       Patch(color=AUG, label="Semantic Benchmark (하락)"),
-                       Patch(color=BEST, label="Semantic Benchmark (강건)")],
+                       Patch(color=AUG, label="Semantic Benchmark")],
               loc="lower right", fontsize=8.5, frameon=True, edgecolor="#dddddd")
     save(fig, "fig_08_lowoverlap.png")
 
