@@ -14,7 +14,7 @@
 > [!IMPORTANT]
 > **핵심 결론** — 한국 금융 법령 RAG 검색·답변 벤치마크 측정 결과 (Lexical 240문 + Semantic 240문)
 >
-> - ✅ **검색은 '하이브리드 + 리랭커'가 정답.** 문서를 조·섹션 단위로 자르고, 키워드 검색(BM25)과 의미 검색(KURE 임베딩)을 함께 쓴 뒤 리랭커로 재정렬하면 정답 회수율(recall@5)이 0.860으로 가장 높다. 특히 **리랭커가 성능을 가장 크게 끌어올리는 단일 요소**다. (그림 1)
+> - ✅ **검색은 '하이브리드 + 리랭커'가 정답.** 문서를 조·섹션 단위로 자르고, 키워드 검색(BM25)과 의미 검색(KURE 임베딩)을 함께 쓴 뒤 리랭커로 재정렬하면 정답 회수율(recall@5)이 0.86 수준으로 가장 높다(리랭커 4종은 동률). 특히 **리랭커가 성능을 가장 크게 끌어올리는 단일 요소**다. (그림 1)
 > - ✅ **한국어 의미 임베딩은 KURE-v1이 최선** (KoE5·BGE-M3보다 우수). 다만 의미 검색만으로는 부족해 — 법령명·조문번호·표처럼 정확한 단어 일치가 중요한 질문은 키워드 검색(BM25)이 더 강하다 — 둘을 합친 하이브리드가 가장 안정적이다.
 > - ❌ **'정교한' 증강 기법은 오히려 손해.** 가설 질문(HyPE)·가설 답변(HyDE)·지식그래프(LightRAG) 세 가지 모두 기본 구성보다 낮았다. 정교하다고 더 좋은 게 아니므로 **새 데이터에 도입하기 전 반드시 직접 측정**해야 한다. (그림 5)
 > - ✅ **답변 생성 LLM은 크기보다 도메인 적합성.** 같은 검색·프롬프트 조건에서 31B급 gemma-4가 96B(Solar)·67B(A.X)보다 더 나은 답을 냈다. 무작정 큰 모델보다 한국어·도메인에 맞는 중형을 실측 비교해 고르는 편이 낫다. (그림 6)
@@ -136,7 +136,7 @@
 | 18 | 벡터(KURE) | — | HyDE | 0.652 | 0.558 | 0.572 |
 | 19 | 벡터(KURE) | — | HyDE+HyPE | 0.562 | 0.515 | 0.529 |
 
-> **리랭커**(bge-m3=bge-reranker-v2-m3 · ko=ko-reranker · ko-8k=ko-reranker-8k · large=bge-reranker-large): #1 ko-8k(0.863)와 #2 기준 bge-m3(0.860)는 **통계적 동률**(240문 ~1문 차)이라, 균형 잡힌 **bge-m3를 기본값(🏆)** 으로 두고 답변 평가·§4 등 모든 후속 실험에 쓴다. 리랭커별 3벤치마크 전체 비교는 [§3.1.3](#313-리랭커-비교).
+> **🏆 = 권장 기본값**(최고값이 아니라 전 벤치마크 균형 기준). 리랭커 약칭: bge-m3=bge-reranker-v2-m3 · ko=ko-reranker · ko-8k=ko-reranker-8k · large=bge-reranker-large. #1 ko-8k(0.863)는 Lexical에서만 근소 우위이고 **Semantic에선 0.708로 급락**([§3.1.3](#313-리랭커-비교))해 robust하지 않다. 따라서 전 벤치마크에서 고른 **bge-m3(#2, 0.860)를 기본값**으로 두고 답변 평가·§4 등 모든 후속 실험에 쓴다(둘은 Lexical에선 240문 ~1문 차 동률).
 > **증강**(HyDE·HyPE)은 적용 가능한 모든 dense 기저에 체계적으로 적용했고 **어느 기저에서도 baseline 미달**(그리드는 [§3.1.2](#312-실험별-결과)). HyPE는 색인 교체식이라 BM25·하이브리드와 결합되지 않는다.
 
 <img src="benchmark/figures/fig_01_leaderboard.png" width="700" alt="검색 기법 리더보드">
@@ -403,7 +403,7 @@ python -m benchmark.goldset.build_goldset --reasoning-effort none --no-judge
 
 # 3) 검색 실험
 python -m benchmark.retrieval_runner --chunker article --retriever hybrid --rerank \
-    --embedder kure-v1 --byeolpyo md              # 최적 구성 (recall@5 0.860)
+    --embedder kure-v1 --byeolpyo md              # 권장 기본 구성 (recall@5 0.860, 리랭커=bge-m3)
 python -m benchmark.retrieval_runner --chunker article --hype --embedder kure-v1 --byeolpyo md   # HyPE
 # HyDE(질의측): 가설답변 캐시 생성 후 적용
 python -m benchmark.hyde_gen --reasoning-effort none
