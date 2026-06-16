@@ -24,7 +24,7 @@ load_goldset = load_jsonl
 
 
 def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=None,
-            rerank=False, hype=False, hyde=False, hyde_cache=None):
+            rerank=False, hype=False, hyde=False, hyde_cache=None, reranker_model=None):
     t0 = time.time()
     chunks = build_chunks(chunker, CORPUS, byeolpyo=byeolpyo)
     t_chunk = time.time() - t0
@@ -55,7 +55,8 @@ def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=
         retr = HyDERetriever(retr, hd, top_k=top_k)
     if rerank:
         from benchmark.pipeline.retrievers import Reranker
-        retr = Reranker(retr, top_k=top_k)  # 기저 검색 후보를 크로스인코더로 재정렬(점수는 원 질문 기준)
+        kw = {"model_name": reranker_model} if reranker_model else {}
+        retr = Reranker(retr, top_k=top_k, **kw)  # 후보를 크로스인코더로 재정렬(점수는 원 질문 기준)
     t_index = time.time() - t1
 
     per_q, per_type, per_reg = [], defaultdict(list), defaultdict(list)
@@ -71,7 +72,8 @@ def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=
 
     result = {
         "config": {"chunker": chunker, "retriever": retriever_kind, "embedder": embedder_name,
-                   "byeolpyo": byeolpyo, "rerank": rerank, "hype": hype, "hyde": hyde},
+                   "byeolpyo": byeolpyo, "rerank": rerank, "hype": hype, "hyde": hyde,
+                   "reranker_model": reranker_model},
         "n_chunks": len(chunks), "n_questions": len(goldset),
         "overall": RM.aggregate(per_q),
         "by_type": {t: RM.aggregate(v) for t, v in per_type.items()},
@@ -106,7 +108,8 @@ def main():
     ap.add_argument("--chunker", default="article")
     ap.add_argument("--retriever", default="bm25", choices=["bm25", "vector", "hybrid"])
     ap.add_argument("--embedder", default="kure-v1")
-    ap.add_argument("--rerank", action="store_true", help="크로스인코더(bge-reranker-v2-m3) 재순위")
+    ap.add_argument("--rerank", action="store_true", help="크로스인코더(기본 bge-reranker-v2-m3) 재순위")
+    ap.add_argument("--reranker", default=None, help="리랭커 모델 오버라이드(예: Dongjin-kr/ko-reranker)")
     ap.add_argument("--hype", nargs="?", const="questions", default=None,
                     choices=["questions", "raw"],
                     help="HyPE 색인(색인측): questions=가설질문만 / raw=가설질문+원문 병행")
@@ -127,14 +130,15 @@ def main():
         print(f"  [경고] --hyde는 dense 기저(vector/hybrid)를 가정한다. 현재 retriever={args.retriever} → "
               "가설답변을 어휘검색에 넣게 되어 의미가 약하다.")
     result = run_one(args.chunker, args.retriever, args.embedder, goldset, args.top_k,
-                     args.byeolpyo, args.rerank, args.hype, args.hyde, args.hyde_cache)
+                     args.byeolpyo, args.rerank, args.hype, args.hyde, args.hyde_cache, args.reranker)
     print_report(result)
 
     Path(args.out).mkdir(parents=True, exist_ok=True)
+    rr_tag = f"_rr-{args.reranker.split('/')[-1]}" if (args.rerank and args.reranker) else ""
     tag = (f"{args.chunker}_{args.retriever}"
            + (f"_{args.embedder}" if args.retriever in ("vector", "hybrid") or args.hype or args.hyde else "")
            + ("_hype" if args.hype else "") + ("_hyde" if args.hyde else "")
-           + ("_rerank" if args.rerank else "")
+           + ("_rerank" if args.rerank else "") + rr_tag
            + (f"_byp-{args.byeolpyo}" if args.byeolpyo else "")
            + (f"_{args.label}" if args.label else ""))
     fp = Path(args.out) / f"{tag}.json"
