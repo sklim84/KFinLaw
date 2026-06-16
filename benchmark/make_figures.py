@@ -113,12 +113,16 @@ def f1_leaderboard():
     def r5(f):
         return rpt(f)["overall"]["recall@5"]
     rows = [  # (참고용 이름, recall@5, 색) — 막대 라벨은 #순위로 표시(표의 #와 동일)
-        ("하이브리드+리랭커", r5("article_hybrid_kure-v1_rerank.json"), BEST),
+        ("하이브리드+리랭커(bge-m3)", r5("article_hybrid_kure-v1_rerank.json"), BEST),
         ("BM25+리랭커", r5("article_bm25_rerank.json"), BASE),
         ("BM25", r5("article_bm25.json"), BASE),
         ("하이브리드(RRF)", r5("article_hybrid_kure-v1.json"), BASE),
         ("벡터+리랭커", r5("article_vector_kure-v1_rerank.json"), BASE),
         ("벡터", r5("article_vector_kure-v1.json"), BASE),
+        # 리랭커 변형(하이브리드 기저, 모델만 교체) — bge-m3와 동률 수준
+        ("하이브리드+ko-8k", r5("article_hybrid_kure-v1_rerank_rr-ko-reranker-8k_byp-md.json"), BASE),
+        ("하이브리드+ko", r5("article_hybrid_kure-v1_rerank_rr-ko-reranker_byp-md.json"), BASE),
+        ("하이브리드+large", r5("article_hybrid_kure-v1_rerank_rr-bge-reranker-large_byp-md.json"), BASE),
         ("LightRAG(naive)", lr_mode("naive")["recall@5"], AUG),
         ("LightRAG(mix)", lr_mode("mix")["recall@5"], AUG),
         # 증강(HyDE/HyPE/둘다) × dense 기저 — 모두 부정
