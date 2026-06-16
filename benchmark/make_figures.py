@@ -108,48 +108,45 @@ def f0_pipeline():
         save(fig, "fig_00_pipeline.png")
 
 
-# ===== F1. 검색 기법 리더보드 (recall@5) =====
+# ===== F1. 종합 리더보드 — 핵심 구성 × 세 벤치마크 (recall@5) =====
 def f1_leaderboard():
     def r5(f):
         return rpt(f)["overall"]["recall@5"]
-    rows = [  # (참고용 이름, recall@5, 색) — 막대 라벨은 #순위로 표시(표의 #와 동일)
-        ("하이브리드+리랭커(bge-m3)", r5("article_hybrid_kure-v1_rerank.json"), BEST),
-        ("BM25+리랭커", r5("article_bm25_rerank.json"), BASE),
-        ("BM25", r5("article_bm25.json"), BASE),
-        ("하이브리드(RRF)", r5("article_hybrid_kure-v1.json"), BASE),
-        ("벡터+리랭커", r5("article_vector_kure-v1_rerank.json"), BASE),
-        ("벡터", r5("article_vector_kure-v1.json"), BASE),
-        # 리랭커 변형(하이브리드 기저, 모델만 교체) — bge-m3와 동률 수준
-        ("하이브리드+ko-8k", r5("article_hybrid_kure-v1_rerank_rr-ko-reranker-8k_byp-md.json"), BASE),
-        ("하이브리드+ko", r5("article_hybrid_kure-v1_rerank_rr-ko-reranker_byp-md.json"), BASE),
-        ("하이브리드+large", r5("article_hybrid_kure-v1_rerank_rr-bge-reranker-large_byp-md.json"), BASE),
-        ("LightRAG(naive)", lr_mode("naive")["recall@5"], AUG),
-        ("LightRAG(mix)", lr_mode("mix")["recall@5"], AUG),
-        # 증강(HyDE/HyPE/둘다) × dense 기저 — 모두 부정
-        ("HyDE+하이브리드+리랭커", r5("article_hybrid_kure-v1_hyde_rerank_byp-md.json"), AUG),
-        ("HyDE+벡터+리랭커", r5("article_vector_kure-v1_hyde_rerank_byp-md.json"), AUG),
-        ("HyPE+벡터+리랭커", r5("article_bm25_kure-v1_hype_rerank_byp-md.json"), AUG),
-        ("HyPE+벡터", r5("article_bm25_kure-v1_hype.json"), AUG),
-        ("HyDE+HyPE+벡터+리랭커", r5("article_bm25_kure-v1_hype_hyde_rerank_byp-md.json"), AUG),
-        ("HyDE+하이브리드", r5("article_hybrid_kure-v1_hyde_byp-md.json"), AUG),
-        ("HyDE+벡터", r5("article_vector_kure-v1_hyde_byp-md.json"), AUG),
-        ("HyDE+HyPE+벡터", r5("article_bm25_kure-v1_hype_hyde_byp-md.json"), AUG),
+    # (라벨, Lexical, Semantic, Locator) — 리포트 basename(.json은 r5가 받음)
+    cfg = [
+        ("하이브리드+리랭커(bge-m3)", "article_hybrid_kure-v1_rerank",
+         "article_hybrid_kure-v1_rerank_byp-md_lowoverlap", "article_hybrid_kure-v1_rerank_byp-md_locator"),
+        ("하이브리드+리랭커(ko)", "article_hybrid_kure-v1_rerank_rr-ko-reranker_byp-md",
+         "article_hybrid_kure-v1_rerank_rr-ko-reranker_byp-md_lowoverlap", "article_hybrid_kure-v1_rerank_rr-ko-reranker_byp-md_locator"),
+        ("하이브리드+리랭커(ko-8k)", "article_hybrid_kure-v1_rerank_rr-ko-reranker-8k_byp-md",
+         "article_hybrid_kure-v1_rerank_rr-ko-reranker-8k_byp-md_lowoverlap", "article_hybrid_kure-v1_rerank_rr-ko-reranker-8k_byp-md_locator"),
+        ("하이브리드+리랭커(large)", "article_hybrid_kure-v1_rerank_rr-bge-reranker-large_byp-md",
+         "article_hybrid_kure-v1_rerank_rr-bge-reranker-large_byp-md_lowoverlap", "article_hybrid_kure-v1_rerank_rr-bge-reranker-large_byp-md_locator"),
+        ("벡터+리랭커", "article_vector_kure-v1_rerank",
+         "article_vector_kure-v1_rerank_byp-md_lowoverlap", "article_vector_kure-v1_rerank_byp-md_locator"),
+        ("하이브리드", "article_hybrid_kure-v1",
+         "article_hybrid_kure-v1_byp-md_lowoverlap", "article_hybrid_kure-v1_byp-md_locator"),
+        ("벡터(KURE)", "article_vector_kure-v1",
+         "article_vector_kure-v1_byp-md_lowoverlap", "article_vector_kure-v1_byp-md_locator"),
+        ("BM25", "article_bm25_byp-md",
+         "article_bm25_byp-md_lowoverlap", "article_bm25_byp-md_locator"),
     ]
-    rows.sort(key=lambda x: x[1])
-    n = len(rows)
-    labels = [f"#{n - i}" for i in range(n)]  # 막대 번호 = 리더보드 표의 #(recall 내림차순)
-    vals, cols = [r[1] for r in rows], [r[2] for r in rows]
-    fig, ax = plt.subplots(figsize=(7.2, 6.2))
+    rows = [(name, r5(lx + ".json"), r5(sm + ".json"), r5(lc + ".json")) for name, lx, sm, lc in cfg]
+    rows.sort(key=lambda r: (r[1] + r[2] + r[3]) / 3)  # 평균 오름차순 → 최상이 맨 위(barh)
+    labels = [r[0] for r in rows]
+    y = np.arange(len(rows))
+    h = 0.26
+    fig, ax = plt.subplots(figsize=(8.4, 5.6))
     ax.set_axisbelow(True)
-    ax.grid(axis="x", color="#e6e6e6", lw=0.7)
-    ax.barh(labels, vals, color=cols, edgecolor="white", linewidth=0.6)  # 정렬 오름차순 → #1이 맨 위
-    for y, v in enumerate(vals):
-        ax.text(v + 0.004, y, f"{v:.3f}", va="center", fontsize=8.5, color=INK)
-    ax.set_xlim(0.5, 0.9)
-    ax.set_xlabel("recall@5 (240문)")
-    ax.legend(handles=[Patch(color=BEST, label="최적"), Patch(color=BASE, label="기본 기법"),
-                       Patch(color=AUG, label="증강 기법(부정 결과)")], loc="lower right", fontsize=8.5,
-              frameon=True, edgecolor="#dddddd")
+    ax.grid(axis="x", color="#ececec", lw=0.7)
+    series = [("Lexical", 1, BASE), ("Semantic", 2, BEST), ("Locator", 3, GOLD)]
+    for name, idx, col in series:
+        ax.barh(y + (2 - idx) * h, [r[idx] for r in rows], h, label=name,
+                color=col, edgecolor="white", linewidth=0.5)
+    ax.set_yticks(y, labels=labels)
+    ax.set_xlim(0, 0.95)
+    ax.set_xlabel("recall@5")
+    ax.legend(loc="lower right", fontsize=9, frameon=True, edgecolor="#dddddd")
     save(fig, "fig_01_leaderboard.png")
 
 
