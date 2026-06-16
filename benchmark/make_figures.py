@@ -110,30 +110,38 @@ def f0_pipeline():
 
 # ===== F1. 검색 기법 리더보드 (recall@5) =====
 def f1_leaderboard():
-    rows = [
-        ("조청킹+하이브리드+리랭커", rpt("article_hybrid_kure-v1_rerank.json")["overall"]["recall@5"], BEST),
-        ("조청킹+BM25+리랭커", rpt("article_bm25_rerank.json")["overall"]["recall@5"], BASE),
-        ("조청킹+BM25", rpt("article_bm25.json")["overall"]["recall@5"], BASE),
-        ("조청킹+하이브리드(RRF)", rpt("article_hybrid_kure-v1.json")["overall"]["recall@5"], BASE),
+    def r5(f):
+        return rpt(f)["overall"]["recall@5"]
+    rows = [  # (참고용 이름, recall@5, 색) — 막대 라벨은 #순위로 표시(표의 #와 동일)
+        ("하이브리드+리랭커", r5("article_hybrid_kure-v1_rerank.json"), BEST),
+        ("BM25+리랭커", r5("article_bm25_rerank.json"), BASE),
+        ("BM25", r5("article_bm25.json"), BASE),
+        ("하이브리드(RRF)", r5("article_hybrid_kure-v1.json"), BASE),
+        ("벡터+리랭커", r5("article_vector_kure-v1_rerank.json"), BASE),
+        ("벡터", r5("article_vector_kure-v1.json"), BASE),
         ("LightRAG(naive)", lr_mode("naive")["recall@5"], AUG),
-        ("HyDE+하이브리드+리랭커", rpt("article_hybrid_kure-v1_hyde_rerank_byp-md.json")["overall"]["recall@5"], AUG),
-        ("조청킹+벡터(KURE)+리랭커", rpt("article_vector_kure-v1_rerank.json")["overall"]["recall@5"], BASE),
-        ("조청킹+벡터(KURE)", rpt("article_vector_kure-v1.json")["overall"]["recall@5"], BASE),
-        ("HyPE", rpt("article_bm25_kure-v1_hype.json")["overall"]["recall@5"], AUG),
         ("LightRAG(mix)", lr_mode("mix")["recall@5"], AUG),
-        ("HyDE(벡터)", rpt("article_vector_kure-v1_hyde_byp-md.json")["overall"]["recall@5"], AUG),
+        # 증강(HyDE/HyPE/둘다) × dense 기저 — 모두 부정
+        ("HyDE+하이브리드+리랭커", r5("article_hybrid_kure-v1_hyde_rerank_byp-md.json"), AUG),
+        ("HyDE+벡터+리랭커", r5("article_vector_kure-v1_hyde_rerank_byp-md.json"), AUG),
+        ("HyPE+벡터+리랭커", r5("article_bm25_kure-v1_hype_rerank_byp-md.json"), AUG),
+        ("HyPE+벡터", r5("article_bm25_kure-v1_hype.json"), AUG),
+        ("HyDE+HyPE+벡터+리랭커", r5("article_bm25_kure-v1_hype_hyde_rerank_byp-md.json"), AUG),
+        ("HyDE+하이브리드", r5("article_hybrid_kure-v1_hyde_byp-md.json"), AUG),
+        ("HyDE+벡터", r5("article_vector_kure-v1_hyde_byp-md.json"), AUG),
+        ("HyDE+HyPE+벡터", r5("article_bm25_kure-v1_hype_hyde_byp-md.json"), AUG),
     ]
     rows.sort(key=lambda x: x[1])
     n = len(rows)
-    labels = [f"{n - i}. {r[0]}" for i, r in enumerate(rows)]  # 막대 번호 = 리더보드 표의 #(recall 내림차순)
+    labels = [f"#{n - i}" for i in range(n)]  # 막대 번호 = 리더보드 표의 #(recall 내림차순)
     vals, cols = [r[1] for r in rows], [r[2] for r in rows]
-    fig, ax = plt.subplots(figsize=(8.5, 5))
+    fig, ax = plt.subplots(figsize=(7.2, 6.2))
     ax.set_axisbelow(True)
     ax.grid(axis="x", color="#e6e6e6", lw=0.7)
-    bars = ax.barh(labels, vals, color=cols, edgecolor="white", linewidth=0.6)
-    for b, v in zip(bars, vals):
-        ax.text(v + 0.004, b.get_y() + b.get_height() / 2, f"{v:.3f}", va="center", fontsize=9, color=INK)
-    ax.set_xlim(0.6, 0.9)
+    ax.barh(labels, vals, color=cols, edgecolor="white", linewidth=0.6)  # 정렬 오름차순 → #1이 맨 위
+    for y, v in enumerate(vals):
+        ax.text(v + 0.004, y, f"{v:.3f}", va="center", fontsize=8.5, color=INK)
+    ax.set_xlim(0.5, 0.9)
     ax.set_xlabel("recall@5 (240문)")
     ax.legend(handles=[Patch(color=BEST, label="최적"), Patch(color=BASE, label="기본 기법"),
                        Patch(color=AUG, label="증강 기법(부정 결과)")], loc="lower right", fontsize=8.5,
