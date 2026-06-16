@@ -124,7 +124,9 @@ def f1_leaderboard():
         ("HyDE(벡터)", rpt("article_vector_kure-v1_hyde_byp-md.json")["overall"]["recall@5"], AUG),
     ]
     rows.sort(key=lambda x: x[1])
-    labels, vals, cols = [r[0] for r in rows], [r[1] for r in rows], [r[2] for r in rows]
+    n = len(rows)
+    labels = [f"{n - i}. {r[0]}" for i, r in enumerate(rows)]  # 막대 번호 = 리더보드 표의 #(recall 내림차순)
+    vals, cols = [r[1] for r in rows], [r[2] for r in rows]
     fig, ax = plt.subplots(figsize=(8.5, 5))
     ax.set_axisbelow(True)
     ax.grid(axis="x", color="#e6e6e6", lw=0.7)
