@@ -126,6 +126,8 @@ def f1_leaderboard():
         ("HyDE+하이브리드+리랭커", r5("article_hybrid_kure-v1_hyde_rerank_byp-md.json"), r5("article_hybrid_kure-v1_hyde_rerank_byp-md_lowoverlap.json")),
         ("HyPE+벡터", r5("article_bm25_kure-v1_hype.json"), r5("article_bm25_kure-v1_hype_byp-md_lowoverlap.json")),
         ("HyDE+벡터", r5("article_vector_kure-v1_hyde_byp-md.json"), r5("article_vector_kure-v1_hyde_byp-md_lowoverlap.json")),
+        ("HyDE+HyPE+벡터+리랭커", r5("article_bm25_kure-v1_hype_hyde_rerank_byp-md.json"), r5("article_bm25_kure-v1_hype_hyde_rerank_byp-md_lowoverlap.json")),
+        ("HyDE+HyPE+벡터", r5("article_bm25_kure-v1_hype_hyde_byp-md.json"), r5("article_bm25_kure-v1_hype_hyde_byp-md_lowoverlap.json")),
         ("LightRAG(naive)", lr("naive", False), lr("naive", True)),
         ("LightRAG(mix)", lr("mix", False), lr("mix", True)),
     ]
