@@ -52,7 +52,7 @@
 | 증강 | HyPE(색인측)[[10]](#ref10) · HyDE(질의측)[[9]](#ref9) |
 | 답변 생성 | 답변모델 5종 · 컨텍스트 포맷 · 인용 지시 |
 
-**모델 역할.** 골드셋 생성기·judge·답변모델 3개 역할을 서로 다른 계열로 분리한다(생성기·judge가 답변모델과 같으면 self-enhancement·preference leakage가 생긴다). 전 구간 temp=0.
+또한 골드셋 생성기·judge·답변모델 3개 역할을 서로 다른 계열로 분리한다(생성기·judge가 답변모델과 같으면 self-enhancement·preference leakage가 생긴다). 전 구간 temp=0.
 
 | 역할 | 모델 (크기) | 용도 |
 |---|---|---|
