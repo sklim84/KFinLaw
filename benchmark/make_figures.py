@@ -108,41 +108,37 @@ def f0_pipeline():
         save(fig, "fig_00_pipeline.png")
 
 
-# ===== F1. 종합 리더보드 — 핵심 구성 × 세 벤치마크 (recall@5) =====
+# ===== F1. 종합 리더보드 — 검색 구성 × Lexical·Semantic (recall@5) =====
 def f1_leaderboard():
     def r5(f):
         return rpt(f)["overall"]["recall@5"]
-    # (라벨, Lexical, Semantic, Locator) — 리포트 basename(.json은 r5가 받음)
-    cfg = [
-        ("하이브리드+리랭커(bge-m3)", "article_hybrid_kure-v1_rerank",
-         "article_hybrid_kure-v1_rerank_byp-md_lowoverlap", "article_hybrid_kure-v1_rerank_byp-md_locator"),
-        ("하이브리드+리랭커(ko)", "article_hybrid_kure-v1_rerank_rr-ko-reranker_byp-md",
-         "article_hybrid_kure-v1_rerank_rr-ko-reranker_byp-md_lowoverlap", "article_hybrid_kure-v1_rerank_rr-ko-reranker_byp-md_locator"),
-        ("하이브리드+리랭커(ko-8k)", "article_hybrid_kure-v1_rerank_rr-ko-reranker-8k_byp-md",
-         "article_hybrid_kure-v1_rerank_rr-ko-reranker-8k_byp-md_lowoverlap", "article_hybrid_kure-v1_rerank_rr-ko-reranker-8k_byp-md_locator"),
-        ("하이브리드+리랭커(large)", "article_hybrid_kure-v1_rerank_rr-bge-reranker-large_byp-md",
-         "article_hybrid_kure-v1_rerank_rr-bge-reranker-large_byp-md_lowoverlap", "article_hybrid_kure-v1_rerank_rr-bge-reranker-large_byp-md_locator"),
-        ("벡터+리랭커", "article_vector_kure-v1_rerank",
-         "article_vector_kure-v1_rerank_byp-md_lowoverlap", "article_vector_kure-v1_rerank_byp-md_locator"),
-        ("하이브리드", "article_hybrid_kure-v1",
-         "article_hybrid_kure-v1_byp-md_lowoverlap", "article_hybrid_kure-v1_byp-md_locator"),
-        ("벡터(KURE)", "article_vector_kure-v1",
-         "article_vector_kure-v1_byp-md_lowoverlap", "article_vector_kure-v1_byp-md_locator"),
-        ("BM25", "article_bm25_byp-md",
-         "article_bm25_byp-md_lowoverlap", "article_bm25_byp-md_locator"),
+    def lr(mode, sem):
+        return rpt("lightrag_eval_lowoverlap.json" if sem else "lightrag_eval.json")["modes"][mode]["overall"]["recall@5"]
+    data = [  # (라벨, Lexical, Semantic) — 표의 #와 동일(평균순)
+        ("하이브리드+리랭커(bge-m3)", r5("article_hybrid_kure-v1_rerank.json"), r5("article_hybrid_kure-v1_rerank_byp-md_lowoverlap.json")),
+        ("하이브리드+리랭커(ko)", r5("article_hybrid_kure-v1_rerank_rr-ko-reranker_byp-md.json"), r5("article_hybrid_kure-v1_rerank_rr-ko-reranker_byp-md_lowoverlap.json")),
+        ("하이브리드+리랭커(ko-8k)", r5("article_hybrid_kure-v1_rerank_rr-ko-reranker-8k_byp-md.json"), r5("article_hybrid_kure-v1_rerank_rr-ko-reranker-8k_byp-md_lowoverlap.json")),
+        ("하이브리드+리랭커(large)", r5("article_hybrid_kure-v1_rerank_rr-bge-reranker-large_byp-md.json"), r5("article_hybrid_kure-v1_rerank_rr-bge-reranker-large_byp-md_lowoverlap.json")),
+        ("벡터+리랭커", r5("article_vector_kure-v1_rerank.json"), r5("article_vector_kure-v1_rerank_byp-md_lowoverlap.json")),
+        ("하이브리드", r5("article_hybrid_kure-v1.json"), r5("article_hybrid_kure-v1_byp-md_lowoverlap.json")),
+        ("벡터(KURE)", r5("article_vector_kure-v1.json"), r5("article_vector_kure-v1_byp-md_lowoverlap.json")),
+        ("BM25", r5("article_bm25_byp-md.json"), r5("article_bm25_byp-md_lowoverlap.json")),
+        ("HyDE+하이브리드+리랭커", r5("article_hybrid_kure-v1_hyde_rerank_byp-md.json"), r5("article_hybrid_kure-v1_hyde_rerank_byp-md_lowoverlap.json")),
+        ("HyPE+벡터", r5("article_bm25_kure-v1_hype.json"), r5("article_bm25_kure-v1_hype_byp-md_lowoverlap.json")),
+        ("HyDE+벡터", r5("article_vector_kure-v1_hyde_byp-md.json"), r5("article_vector_kure-v1_hyde_byp-md_lowoverlap.json")),
+        ("LightRAG(naive)", lr("naive", False), lr("naive", True)),
+        ("LightRAG(mix)", lr("mix", False), lr("mix", True)),
     ]
-    rows = [(name, r5(lx + ".json"), r5(sm + ".json"), r5(lc + ".json")) for name, lx, sm, lc in cfg]
-    rows.sort(key=lambda r: (r[1] + r[2] + r[3]) / 3)  # 평균 오름차순 → 최상이 맨 위(barh)
-    labels = [r[0] for r in rows]
-    y = np.arange(len(rows))
-    h = 0.26
-    fig, ax = plt.subplots(figsize=(8.4, 5.6))
+    data.sort(key=lambda d: (d[1] + d[2]) / 2)  # 평균 오름차순 → 최상이 맨 위(barh)
+    n = len(data)
+    labels = [f"#{n - i}" for i in range(n)]  # 표의 #와 동일
+    y = np.arange(n)
+    h = 0.38
+    fig, ax = plt.subplots(figsize=(7.6, 6.6))
     ax.set_axisbelow(True)
     ax.grid(axis="x", color="#ececec", lw=0.7)
-    series = [("Lexical", 1, BASE), ("Semantic", 2, BEST), ("Locator", 3, GOLD)]
-    for name, idx, col in series:
-        ax.barh(y + (2 - idx) * h, [r[idx] for r in rows], h, label=name,
-                color=col, edgecolor="white", linewidth=0.5)
+    ax.barh(y + h / 2, [d[1] for d in data], h, label="Lexical", color=BASE, edgecolor="white", linewidth=0.5)
+    ax.barh(y - h / 2, [d[2] for d in data], h, label="Semantic", color=BEST, edgecolor="white", linewidth=0.5)
     ax.set_yticks(y, labels=labels)
     ax.set_xlim(0, 0.95)
     ax.set_xlabel("recall@5")
