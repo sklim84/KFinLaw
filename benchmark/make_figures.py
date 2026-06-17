@@ -108,46 +108,6 @@ def f0_pipeline():
         save(fig, "fig_00_pipeline.png")
 
 
-# ===== F1. 종합 리더보드 — 검색 구성 × Lexical·Semantic (recall@5) =====
-def f1_leaderboard():
-    def r5(f):
-        return rpt(f)["overall"]["recall@5"]
-    def lr(mode, sem):
-        return rpt("lightrag_eval_lowoverlap.json" if sem else "lightrag_eval.json")["modes"][mode]["overall"]["recall@5"]
-    data = [  # (라벨, Lexical, Semantic) — 표의 #와 동일(평균순)
-        ("하이브리드+리랭커(bge-m3)", r5("article_hybrid_kure-v1_rerank.json"), r5("article_hybrid_kure-v1_rerank_byp-md_lowoverlap.json")),
-        ("하이브리드+리랭커(ko)", r5("article_hybrid_kure-v1_rerank_rr-ko-reranker_byp-md.json"), r5("article_hybrid_kure-v1_rerank_rr-ko-reranker_byp-md_lowoverlap.json")),
-        ("하이브리드+리랭커(ko-8k)", r5("article_hybrid_kure-v1_rerank_rr-ko-reranker-8k_byp-md.json"), r5("article_hybrid_kure-v1_rerank_rr-ko-reranker-8k_byp-md_lowoverlap.json")),
-        ("하이브리드+리랭커(large)", r5("article_hybrid_kure-v1_rerank_rr-bge-reranker-large_byp-md.json"), r5("article_hybrid_kure-v1_rerank_rr-bge-reranker-large_byp-md_lowoverlap.json")),
-        ("벡터+리랭커", r5("article_vector_kure-v1_rerank.json"), r5("article_vector_kure-v1_rerank_byp-md_lowoverlap.json")),
-        ("하이브리드", r5("article_hybrid_kure-v1.json"), r5("article_hybrid_kure-v1_byp-md_lowoverlap.json")),
-        ("벡터(KURE)", r5("article_vector_kure-v1.json"), r5("article_vector_kure-v1_byp-md_lowoverlap.json")),
-        ("BM25", r5("article_bm25_byp-md.json"), r5("article_bm25_byp-md_lowoverlap.json")),
-        ("HyDE+하이브리드+리랭커", r5("article_hybrid_kure-v1_hyde_rerank_byp-md.json"), r5("article_hybrid_kure-v1_hyde_rerank_byp-md_lowoverlap.json")),
-        ("HyPE+벡터", r5("article_bm25_kure-v1_hype.json"), r5("article_bm25_kure-v1_hype_byp-md_lowoverlap.json")),
-        ("HyDE+벡터", r5("article_vector_kure-v1_hyde_byp-md.json"), r5("article_vector_kure-v1_hyde_byp-md_lowoverlap.json")),
-        ("HyDE+HyPE+벡터+리랭커", r5("article_bm25_kure-v1_hype_hyde_rerank_byp-md.json"), r5("article_bm25_kure-v1_hype_hyde_rerank_byp-md_lowoverlap.json")),
-        ("HyDE+HyPE+벡터", r5("article_bm25_kure-v1_hype_hyde_byp-md.json"), r5("article_bm25_kure-v1_hype_hyde_byp-md_lowoverlap.json")),
-        ("LightRAG(naive)", lr("naive", False), lr("naive", True)),
-        ("LightRAG(mix)", lr("mix", False), lr("mix", True)),
-    ]
-    data.sort(key=lambda d: (d[1] + d[2]) / 2)  # 평균 오름차순 → 최상이 맨 위(barh)
-    n = len(data)
-    labels = [f"#{n - i}" for i in range(n)]  # 표의 #와 동일
-    y = np.arange(n)
-    h = 0.38
-    fig, ax = plt.subplots(figsize=(7.6, 6.6))
-    ax.set_axisbelow(True)
-    ax.grid(axis="x", color="#ececec", lw=0.7)
-    ax.barh(y + h / 2, [d[1] for d in data], h, label="Lexical", color=BASE, edgecolor="white", linewidth=0.5)
-    ax.barh(y - h / 2, [d[2] for d in data], h, label="Semantic", color=BEST, edgecolor="white", linewidth=0.5)
-    ax.set_yticks(y, labels=labels)
-    ax.set_xlim(0, 0.95)
-    ax.set_xlabel("recall@5")
-    ax.legend(loc="lower right", fontsize=9, frameon=True, edgecolor="#dddddd")
-    save(fig, "fig_01_leaderboard.png")
-
-
 # ===== 청킹 비교 (E1, recall@5) =====
 def f_chunking():
     chunkers = [("조(article)", "article"), ("항(hang)", "hang"),
@@ -341,7 +301,7 @@ def f6_answer_models():
 if __name__ == "__main__":
     # 그림0(fig_00_pipeline.png)은 외부에서 별도 관리(손그림 도식) — 자동 생성 제외.
     # 필요 시 f0_pipeline()을 직접 호출해 matplotlib 버전으로 재생성 가능.
-    f1_leaderboard()
+    # 리더보드(구 fig_01)는 표 1과 중복이라 README에서 제외 — figure 미생성.
     f_chunking()
     f2_by_type()
     f3_recall_at_k()
