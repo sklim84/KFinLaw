@@ -37,10 +37,16 @@ def run_one(chunker, retriever_kind, embedder_name, goldset, top_k=10, byeolpyo=
     t1 = time.time()
     if hype:
         # HyPE: 가설질문 임베딩 색인. hype=="raw"면 원문 병행(coverage gap 완화)
-        from benchmark.pipeline.retrievers import HyPERetriever
         hq = json.load(open(HERE / "hype_cache.json", encoding="utf-8"))
-        retr = HyPERetriever(chunks, embedder, hq, top_k=top_k,
-                             include_raw=(hype == "raw"))
+        if retriever_kind == "hybrid":
+            # 하이브리드의 dense 성분만 HyPE로 교체(BM25 원문 + HyPE-dense RRF)
+            from benchmark.pipeline.retrievers import HyPEHybridRetriever
+            retr = HyPEHybridRetriever(chunks, embedder, hq, top_k=top_k,
+                                       include_raw=(hype == "raw"))
+        else:
+            from benchmark.pipeline.retrievers import HyPERetriever
+            retr = HyPERetriever(chunks, embedder, hq, top_k=top_k,
+                                 include_raw=(hype == "raw"))
     elif chunker == "parent":
         # 자식(항)으로 검색 → 부모(조)로 dedup → 부모 전체 본문 반환
         parent_text = {c["source_uids"][0]: c["text"] for c in chunk_article(CORPUS)}

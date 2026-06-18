@@ -166,6 +166,29 @@ class HyPERetriever:
         return out
 
 
+class HyPEHybridRetriever:
+    """하이브리드의 dense 성분만 HyPE로 교체: BM25(원문) + HyPE-dense(가설질문 임베딩)를 RRF로 융합.
+    BM25는 원문 토큰, dense는 가설질문↔질의 매칭을 담당한다(HybridRetriever와 동일한 RRF)."""
+    def __init__(self, chunks, embedder, hype_questions, top_k=10,
+                 k_rrf=_RET["rrf_k"], fanout=_RET["fanout"], include_raw=False):
+        self.bm25 = BM25Retriever(chunks, top_k=fanout)
+        self.hype = HyPERetriever(chunks, embedder, hype_questions, top_k=fanout,
+                                  include_raw=include_raw)
+        self.top_k, self.k_rrf, self.fanout = top_k, k_rrf, fanout
+
+    def search(self, query, top_k=None):
+        k = top_k or self.top_k
+        fused, cmap = {}, {}
+        for ranked in (self.bm25.search(query, self.fanout),
+                       self.hype.search(query, self.fanout)):
+            for rank, (chunk, _) in enumerate(ranked, 1):
+                cid = chunk["chunk_id"]
+                fused[cid] = fused.get(cid, 0.0) + 1.0 / (self.k_rrf + rank)
+                cmap[cid] = chunk
+        order = sorted(fused.items(), key=lambda x: -x[1])[:k]
+        return [(cmap[cid], sc) for cid, sc in order]
+
+
 class HyDERetriever:
     """HyDE(Gao et al. 2023): 질문 대신 LLM이 생성한 '가설 답변'을 임베딩해 dense 검색.
     질의↔조문 어휘격차를 질의측에서 보정(HyPE=색인측의 대칭). base는 dense 기반(Vector/Hybrid),
