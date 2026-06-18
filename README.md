@@ -151,7 +151,7 @@
 | 인용 F1(citation F1) | 인용한 조문이 정답 식별자와 일치 (자동, LLM 불필요) |
 
 
-### 2.4 Results
+### 2.4 Experimental Results
 
 #### 2.4.1 Retrieval Evaluation
 
