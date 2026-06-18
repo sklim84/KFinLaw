@@ -1,6 +1,6 @@
 """
 README용 figure 생성 — reports/*.json(검색·답변 평가 결과)을 읽어 PNG로.
-한글 라벨(나눔폰트), dpi 300, 제목 없음(캡션은 README에서). 산출: benchmark/figures/fig_00~07.png
+한글 라벨(나눔폰트), dpi 300, 제목 없음(캡션은 README에서). 산출: benchmark/figures/fig_00~06.png
 사용: python -m benchmark.make_figures
 """
 import json
@@ -200,34 +200,8 @@ def f4_augmentation():
     save(fig, "fig_05_augmentation.png")
 
 
-# ===== F5. 격식체 vs 구어체 =====
-def f5_register():
-    series = [("BM25", rpt("article_bm25.json")),
-              ("벡터(KURE)", rpt("article_vector_kure-v1.json")),
-              ("하이브리드+리랭커", rpt("article_hybrid_kure-v1_rerank.json"))]
-    x = np.arange(len(series))
-    w = 0.36
-    fig, ax = plt.subplots(figsize=(7, 4.4))
-    ax.set_axisbelow(True)
-    ax.grid(axis="y", color="#ececec", lw=0.7)
-    formal = [d["by_register"]["formal"]["recall@5"] for _, d in series]
-    collo = [d["by_register"]["colloquial"]["recall@5"] for _, d in series]
-    b1 = ax.bar(x - w / 2, formal, w, label="격식체(formal)", color=BASE, edgecolor="white", linewidth=0.6)
-    b2 = ax.bar(x + w / 2, collo, w, label="구어체(colloquial)", color=BEST, edgecolor="white", linewidth=0.6)
-    for bs in (b1, b2):
-        for b in bs:
-            ax.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.012, f"{b.get_height():.2f}",
-                    ha="center", fontsize=8, color=INK)
-    ax.set_xticks(x)
-    ax.set_xticklabels([s[0] for s in series])
-    ax.set_ylabel("recall@5 (factoid 쌍)")
-    ax.set_ylim(0, 1.12)
-    ax.legend(fontsize=9, frameon=True, edgecolor="#dddddd")
-    save(fig, "fig_06_register.png")
-
-
-# ===== F8. 어휘중첩 편향 검증 — 원본 vs 저어휘중첩 (dumbbell) =====
-def f8_lowoverlap():
+# ===== F6. 어휘중첩 편향 검증: Lexical vs Semantic (dumbbell) =====
+def f6_lowoverlap():
     # (라벨, 원본리포트, 저중첩리포트)
     rows = [
         ("BM25 (어휘)",            "article_bm25_byp-md",                       "article_bm25_byp-md_lowoverlap"),
@@ -259,7 +233,7 @@ def f8_lowoverlap():
     ax.legend(handles=[Patch(color=BASE, label="Lexical Benchmark"),
                        Patch(color=AUG, label="Semantic Benchmark")],
               loc="lower right", fontsize=8.5, frameon=True, edgecolor="#dddddd")
-    save(fig, "fig_07_lowoverlap.png")
+    save(fig, "fig_06_lowoverlap.png")
 
 
 if __name__ == "__main__":
@@ -270,7 +244,7 @@ if __name__ == "__main__":
     f2_by_type()
     f3_recall_at_k()
     f4_augmentation()
-    f5_register()
-    f8_lowoverlap()
-    # 답변모델 히트맵(구 fig_06_answer_models)은 표 8과 중복이라 README에서 제외 — figure 미생성.
+    f6_lowoverlap()
+    # 격식체·구어체 비교는 Semantic Benchmark가 어휘격차를 직접 검증하므로 README에서 제외 — figure 미생성.
+    # 답변모델 히트맵은 표 6과 중복이라 README에서 제외 — figure 미생성.
     print("\n모든 figure 생성 완료 →", FIG)
