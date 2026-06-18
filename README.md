@@ -159,6 +159,8 @@
 
 ##### Overall Ranking
 
+**어떤 검색 구성이 두 벤치마크에서 종합적으로 가장 강한가?** 모든 구성의 순위는 아래 리더보드에 있다.
+
 > **표 1.** 종합 리더보드, 검색 구성별 Lexical·Semantic의 recall@5·MRR·nDCG@10 (평균 recall@5 순).
 
 | # | 검색기 | 리랭커 | 증강 | **Lexical**<br>R@5 | MRR | nDCG | **Semantic**<br>R@5 | MRR | nDCG | 평균<br>R@5 |
@@ -181,7 +183,7 @@
 
 - **하이브리드+리랭커가 두 벤치마크·전 메트릭에서 고르게 상위다.**
 - **증강(HyDE·HyPE·LightRAG)은 모두 자기 baseline 아래다.**
-- **리랭커는 적용 자체가 큰 레버이고 종류는 부차적이다.** ko-reranker-8k는 Lexical 최고지만 Semantic이 급락해, 평균이 가장 균형 잡힌 bge-reranker-v2-m3를 기본값(🏆)으로 둔다.
+- **리랭커는 적용 여부가 큰 레버이고, 어떤 리랭커를 쓰는지는 영향이 작다.** ko-reranker-8k는 Lexical 최고지만 Semantic이 급락해, 평균이 가장 균형 잡힌 bge-reranker-v2-m3를 기본값(🏆)으로 쓴다.
 
 ##### Component Analysis
 
