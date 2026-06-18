@@ -57,7 +57,6 @@
 | **파싱** | 본문(조문) | API XML(`lawService.do`)을 `lawdoc.py`로 조 단위 파싱 (단일 방식, 고정) |
 | | 별표 kordoc-md | HWP·PDF 별표를 GPU 없이 마크다운 표로 변환(라이선스 자유), 기본 변환기 |
 | | 별표 평문 | 별표를 표 구조 없이 평문 텍스트로, 표구조 보존 효과의 대조 기준 |
-| | 별표 MinerU[[19]](#ref19) | 병합셀이 복잡한 표에 더 정확한 레이아웃 파서(무거움·AGPL이라 미연결) |
 | **청킹** | 조 단위 | 법령 조문 단위로 분할, 법령의 자연 단위(**기본값**) |
 | | 항 단위 | 조 아래 항 단위로 더 잘게, 세분화 효과 검증 |
 | | 고정 토큰 | 의미 경계를 무시하고 N토큰씩 균등 분할, 일반 RAG 관행 대조 |
@@ -72,14 +71,14 @@
 | | 하이브리드 RRF[[4]](#ref4) | BM25·벡터의 순위를 Reciprocal Rank Fusion으로 융합, 두 신호 결합 |
 | | LightRAG[[11]](#ref11) | 엔티티 지식그래프 기반 RAG, 그래프 증강의 효과 검증 |
 | **리랭커** | bge-reranker-v2-m3[[5]](#ref5) | BGE-M3 기반 다국어 크로스인코더, **권장 기본값**(균형 최상) |
-| | ko-reranker[[20]](#ref20) | 한국어 특화 크로스인코더 |
-| | ko-reranker-8k[[21]](#ref21) | 한국어·긴 컨텍스트(8k) 크로스인코더 |
-| | bge-reranker-large[[22]](#ref22) | 영어 대형 크로스인코더, 규모 대조군 |
-| **답변모델**<br>(답변 평가) | Qwen3.6 (27B)[[23]](#ref23) | Alibaba Qwen 계열 다국어 LLM |
-| | gemma-4 (31B)[[24]](#ref24) | Google Gemma 계열 경량 LLM |
-| | EXAONE-4.0 (32B)[[25]](#ref25) | LG AI Research 한국어 특화 LLM |
-| | A.X-4.0 (67B)[[26]](#ref26) | SK텔레콤 한국어 LLM |
-| | Solar-Open (100B)[[27]](#ref27) | Upstage 대형 LLM |
+| | ko-reranker[[19]](#ref19) | 한국어 특화 크로스인코더 |
+| | ko-reranker-8k[[20]](#ref20) | 한국어·긴 컨텍스트(8k) 크로스인코더 |
+| | bge-reranker-large[[21]](#ref21) | 영어 대형 크로스인코더, 규모 대조군 |
+| **답변모델**<br>(답변 평가) | Qwen3.6 (27B)[[22]](#ref22) | Alibaba Qwen 계열 다국어 LLM |
+| | gemma-4 (31B)[[23]](#ref23) | Google Gemma 계열 경량 LLM |
+| | EXAONE-4.0 (32B)[[24]](#ref24) | LG AI Research 한국어 특화 LLM |
+| | A.X-4.0 (67B)[[25]](#ref25) | SK텔레콤 한국어 LLM |
+| | Solar-Open (100B)[[26]](#ref26) | Upstage 대형 LLM |
 
 > *임베딩* 3종은 모두 **1024차원**이고 XLM-RoBERTa-large 백본을 공유한다(컨텍스트는 KURE·BGE-M3 8192, KoE5 512). 차원이 같아 임베더 비교가 *차원 통제* 상태에서 이뤄진다. *재순위*는 리랭커 *적용 여부 자체*가 종류 선택보다 큰 성능 레버다.
 
@@ -93,11 +92,11 @@
 
 금융 키워드 28개로 현행 법령 200건을 찾고, 인용된 법령을 재귀적으로 따라가 총 2,596건(본문 XML 2,582개)을 수집한다. 이 중 키워드 1차와 직접참조에 해당하는 931건만 금융 범위로 확정하고, 재귀로 딸려온 비금융 법령은 제외한다. 본문은 조 단위 청크로 전처리하고, 조문·별표마다 법령ID와 조문/별표번호를 조합한 고유 식별자(uid)를 부여한다. 이 uid가 골드셋의 정답 근거가 된다.
 
-별표(부록·표)는 PDF로 변환했다. API가 주는 HTML은 JS iframe이라 직접 스크래핑이 안 되고, 원본 HWP는 변환 과정에서 표 구조가 깨지기 때문이다. 변환기는 **kordoc**(PDF 모드)으로 1,083개를 전수 변환했다. 병합셀이 복잡한 표는 MinerU가 더 정확하지만, 무겁고(GPU 필요) AGPL 라이선스라 파이프라인에는 넣지 않았다(표의 *MinerU(미연결)*).
+별표(부록·표)는 PDF로 변환했다. API가 주는 HTML은 JS iframe이라 직접 스크래핑이 안 되고, 원본 HWP는 변환 과정에서 표 구조가 깨지기 때문이다. 변환기는 **kordoc**(PDF 모드)으로 1,083개를 전수 변환했다.
 
 #### 2.2.3 코퍼스
 
-핵심 금융법 **32개 법령(13개 법령군, 조문 3,609·별표 126 → 인덱싱 청크 약 3,251개)**(청크 수가 조문+별표 합보다 적은 것은 삭제 조문·부칙 등을 정리했기 때문이다). 각 군이 본법 + 시행령(+ 시행규칙)을 갖춰 법↔시행령 멀티홉·별표 조회·교차참조를 모두 평가하도록 통제한 소규모 구성이다.
+핵심 금융법 **32개 법령**(13개 법령군, 조문 3,609·별표 126 → 인덱싱 청크 약 3,251개)이다. 인덱싱 청크가 조문·별표 합보다 적은 것은 삭제 조문·부칙 등을 정리했기 때문이다. 각 군이 본법 + 시행령(+ 시행규칙)을 갖춰 법↔시행령 멀티홉·별표 조회·교차참조를 모두 평가하도록 통제한 소규모 구성이다.
 
 <details>
 <summary>대표 코퍼스 32개 법령 목록 (13군)</summary>
@@ -124,7 +123,7 @@
 
 #### 2.2.4 골드셋
 
-위 코퍼스에서 평가용 **240문**을 반자동으로 만들었다. 생성모델 Mistral Small 4 (119B)[[28]](#ref28)가 각 조문·별표에서 Q&A를 만들고(답변모델과 독립 계열), **일관성 필터**로 걸러 채택한다. 생성된 질문을 검색기에 다시 넣어 원본 조문이 회수되는 질문만 남기는 방식이다(round-trip BM25).
+위 코퍼스에서 평가용 **240문**을 반자동으로 만들었다. 생성모델 Mistral Small 4 (119B)[[27]](#ref27)가 각 조문·별표에서 Q&A를 만들고(답변모델과 독립 계열), **일관성 필터**로 걸러 채택한다. 생성된 질문을 검색기에 다시 넣어 원본 조문이 회수되는 질문만 남기는 방식이다(round-trip BM25).
 
 질문은 네 유형을 각 60문씩 균형 있게 두었다: factoid(정의·요건), crossref(교차참조), byeolpyo(별표 조회), multihop(본법↔시행령). 정답 근거(gold)는 조문·별표 uid로 고정했고, multihop 60문은 본법·시행령 둘을 함께 짚는 2-gold다(따라서 gold uid는 1-gold 180문 + 2-gold 60문×2 = 300개). factoid에는 같은 사실을 격식체·구어체로 묻는 30쌍을 넣어 어휘격차를 짝지어 측정한다. gold uid 300개가 모두 코퍼스에 존재함을 확인했다.
 
@@ -149,7 +148,7 @@
 
 **검색 메트릭**(`benchmark/eval/retrieval_metrics`)은 회수된 청크의 uid를 gold uid와 대조해 recall@k · precision@k · MRR · nDCG@k[[15]](#ref15)를 **결정론적으로** 계산하므로 LLM 판정이 개입하지 않는다.
 
-**답변 메트릭**(`answer_metrics`)은 인용 F1만 자동·객관이고, 나머지 다섯 항목은 judge 루브릭으로 채점한다. judge는 답변모델과 다른 계열(gpt-oss-120b[[29]](#ref29))이며, 검색은 최적 구성(하이브리드+리랭커)으로 고정해 답변모델 효과만 본다. 생성·심사·답변 LLM은 서로 다른 계열로 분리하고(같은 계열이면 self-enhancement·preference leakage 발생), 전 구간 temp=0으로 실행한다.
+**답변 메트릭**(`answer_metrics`)은 인용 F1만 자동·객관이고, 나머지 다섯 항목은 judge 루브릭으로 채점한다. judge는 답변모델과 다른 계열(gpt-oss-120b[[28]](#ref28))이며, 검색은 최적 구성(하이브리드+리랭커)으로 고정해 답변모델 효과만 본다. 생성·심사·답변 LLM은 서로 다른 계열로 분리하고(같은 계열이면 self-enhancement·preference leakage 발생), 전 구간 temp=0으로 실행한다.
 
 | 메트릭 | 측정 | 채점 |
 |---|---|---|
@@ -484,7 +483,7 @@ KA-013-KFinLaw-MCP/
 
 ## References
 
-본 벤치마크가 채택·검증한 기법·모델·도구의 원천. 본문에서는 번호 링크(예: [[4]](#ref4))로 인용한다. [1]~[18]은 기법 논문, [19]~[22]는 도구·리랭커, [23]~[29]는 사용 LLM(모델 카드)이다.
+본 벤치마크가 채택·검증한 기법·모델·도구의 원천. 본문에서는 번호 링크(예: [[4]](#ref4))로 인용한다. [1]~[18]은 기법 논문, [19]~[21]는 리랭커, [22]~[28]는 사용 LLM(모델 카드)이다.
 
 - <a id="ref1"></a>**[1]** Lewis et al. (2020). *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks.* NeurIPS. [arXiv:2005.11401](https://arxiv.org/abs/2005.11401)
 - <a id="ref2"></a>**[2]** Robertson & Zaragoza (2009). *The Probabilistic Relevance Framework: BM25 and Beyond.* Foundations and Trends in IR. [doi:10.1561/1500000019](https://doi.org/10.1561/1500000019)
@@ -504,14 +503,13 @@ KA-013-KFinLaw-MCP/
 - <a id="ref16"></a>**[16]** Es et al. (2024). *RAGAS: Automated Evaluation of Retrieval Augmented Generation.* EACL. [arXiv:2309.15217](https://arxiv.org/abs/2309.15217)
 - <a id="ref17"></a>**[17]** Saad-Falcon et al. (2024). *ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation.* NAACL. [arXiv:2311.09476](https://arxiv.org/abs/2311.09476)
 - <a id="ref18"></a>**[18]** Kim et al. (2024). *Developing a Pragmatic Benchmark for Assessing Korean Legal Language Understanding in LLMs* (KBL). EMNLP Findings. [arXiv:2410.08731](https://arxiv.org/abs/2410.08731)
-- <a id="ref19"></a>**[19]** Wang et al. (2024). *MinerU: An Open-Source Solution for Precise Document Content Extraction.* [arXiv:2409.18839](https://arxiv.org/abs/2409.18839)
-- <a id="ref20"></a>**[20]** Dongjin-kr. *ko-reranker* (한국어 reranker, bge-reranker-large 기반 파인튜닝). [huggingface.co/Dongjin-kr/ko-reranker](https://huggingface.co/Dongjin-kr/ko-reranker)
-- <a id="ref21"></a>**[21]** upskyy. *ko-reranker-8k* (한국어·8k 컨텍스트 reranker). [huggingface.co/upskyy/ko-reranker-8k](https://huggingface.co/upskyy/ko-reranker-8k)
-- <a id="ref22"></a>**[22]** Xiao et al. (2024). *C-Pack: Packed Resources For General Chinese Embeddings* (bge-reranker-large). SIGIR. [arXiv:2309.07597](https://arxiv.org/abs/2309.07597)
-- <a id="ref23"></a>**[23]** Qwen Team. *Qwen3.6-27B.* [huggingface.co/Qwen/Qwen3.6-27B](https://huggingface.co/Qwen/Qwen3.6-27B)
-- <a id="ref24"></a>**[24]** Google. *Gemma-4-31B-it.* [huggingface.co/google/gemma-4-31B-it](https://huggingface.co/google/gemma-4-31B-it)
-- <a id="ref25"></a>**[25]** LG AI Research. *EXAONE-4.0-32B.* [huggingface.co/LGAI-EXAONE/EXAONE-4.0-32B](https://huggingface.co/LGAI-EXAONE/EXAONE-4.0-32B)
-- <a id="ref26"></a>**[26]** SK Telecom. *A.X-4.0.* [huggingface.co/skt/A.X-4.0](https://huggingface.co/skt/A.X-4.0)
-- <a id="ref27"></a>**[27]** Upstage. *Solar-Open-100B.* [huggingface.co/upstage/Solar-Open-100B](https://huggingface.co/upstage/Solar-Open-100B)
-- <a id="ref28"></a>**[28]** Mistral AI. *Mistral-Small-4-119B.* [huggingface.co/mistralai/Mistral-Small-4-119B-2603](https://huggingface.co/mistralai/Mistral-Small-4-119B-2603)
-- <a id="ref29"></a>**[29]** OpenAI. *gpt-oss-120b.* [huggingface.co/openai/gpt-oss-120b](https://huggingface.co/openai/gpt-oss-120b)
+- <a id="ref19"></a>**[19]** Dongjin-kr. *ko-reranker* (한국어 reranker, bge-reranker-large 기반 파인튜닝). [huggingface.co/Dongjin-kr/ko-reranker](https://huggingface.co/Dongjin-kr/ko-reranker)
+- <a id="ref20"></a>**[20]** upskyy. *ko-reranker-8k* (한국어·8k 컨텍스트 reranker). [huggingface.co/upskyy/ko-reranker-8k](https://huggingface.co/upskyy/ko-reranker-8k)
+- <a id="ref21"></a>**[21]** Xiao et al. (2024). *C-Pack: Packed Resources For General Chinese Embeddings* (bge-reranker-large). SIGIR. [arXiv:2309.07597](https://arxiv.org/abs/2309.07597)
+- <a id="ref22"></a>**[22]** Qwen Team. *Qwen3.6-27B.* [huggingface.co/Qwen/Qwen3.6-27B](https://huggingface.co/Qwen/Qwen3.6-27B)
+- <a id="ref23"></a>**[23]** Google. *Gemma-4-31B-it.* [huggingface.co/google/gemma-4-31B-it](https://huggingface.co/google/gemma-4-31B-it)
+- <a id="ref24"></a>**[24]** LG AI Research. *EXAONE-4.0-32B.* [huggingface.co/LGAI-EXAONE/EXAONE-4.0-32B](https://huggingface.co/LGAI-EXAONE/EXAONE-4.0-32B)
+- <a id="ref25"></a>**[25]** SK Telecom. *A.X-4.0.* [huggingface.co/skt/A.X-4.0](https://huggingface.co/skt/A.X-4.0)
+- <a id="ref26"></a>**[26]** Upstage. *Solar-Open-100B.* [huggingface.co/upstage/Solar-Open-100B](https://huggingface.co/upstage/Solar-Open-100B)
+- <a id="ref27"></a>**[27]** Mistral AI. *Mistral-Small-4-119B.* [huggingface.co/mistralai/Mistral-Small-4-119B-2603](https://huggingface.co/mistralai/Mistral-Small-4-119B-2603)
+- <a id="ref28"></a>**[28]** OpenAI. *gpt-oss-120b.* [huggingface.co/openai/gpt-oss-120b](https://huggingface.co/openai/gpt-oss-120b)
