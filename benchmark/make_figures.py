@@ -93,17 +93,17 @@ def f0_pipeline():
         box(cx[0], y1, "법령 XML\n· 별표 PDF", LIGHT)
         box(cx[1], y1, "코퍼스 32법령\n(약 3,251 청크)", LIGHT)
         box(cx[2], y1, "골드셋 240문\nLLM생성 + 일관성필터", LIGHT)
-        box(cx[3], y1, "레이어1 · 검색 평가\n(청킹·임베딩·검색기\n·리랭커)", STAGE, fs=9)
+        box(cx[3], y1, "1단계 · 검색 평가\n(청킹·임베딩·검색기\n·리랭커)", STAGE, fs=9)
         cx2 = [10.7, 6.2, 1.7]        # 행2 (우→좌)
         box(cx2[0], y2, "검색 지표\nrecall@k·MRR·nDCG\n(gold = uid)", LIGHT)
-        box(cx2[1], y2, "레이어2 · 답변 평가\n(답변모델 + judge\n+ 인용검증)", STAGE, fs=9)
+        box(cx2[1], y2, "2단계 · 답변 평가\n(답변모델 + judge\n+ 인용검증)", STAGE, fs=9)
         box(cx2[2], y2, "답변 지표\n정확성·충실성\n완결성·인용", LIGHT)
         for a, b in [(0, 1), (1, 2), (2, 3)]:
             arrow((cx[a] + BW / 2, y1), (cx[b] - BW / 2, y1))
         arrow((cx[3], y1 - BH / 2), (cx2[0], y2 + BH / 2))           # 단계 전환(아래로)
         arrow((cx2[0] - BW / 2, y2), (cx2[1] + BW / 2, y2))
         arrow((cx2[1] - BW / 2, y2), (cx2[2] + BW / 2, y2))
-        ax.text(cx[3] + 0.15, (y1 + y2) / 2, "최적 config\n고정", ha="left", va="center",
+        ax.text(cx[3] + 0.15, (y1 + y2) / 2, "최적 구성\n고정", ha="left", va="center",
                 fontsize=8.5, color=AUG, style="italic")
         save(fig, "fig_00_pipeline.png")
 
