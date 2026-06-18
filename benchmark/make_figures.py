@@ -95,7 +95,7 @@ def f0_pipeline():
         box(cx[2], y1, "골드셋 3벤치\nLexical·Semantic·Locator\n(240·240·103문항)", LIGHT, fs=8)
         box(cx[3], y1, "1단계 · 검색 평가\n(청킹·임베딩·검색기\n·리랭커)", STAGE, fs=9)
         cx2 = [13.3, 7.6, 1.9]        # 행2 (우→좌)
-        box(cx2[0], y2, "검색 지표\nrecall@k·MRR·nDCG\n(gold = uid)", LIGHT)
+        box(cx2[0], y2, "검색 지표\nrecall@k·MRR·nDCG\n(gold = 식별자)", LIGHT)
         box(cx2[1], y2, "2단계 · 답변 평가\n(답변모델 + judge\n+ 인용검증)", STAGE, fs=9)
         box(cx2[2], y2, "답변 지표\n정확성·충실성\n완결성·인용", LIGHT)
         for a, b in [(0, 1), (1, 2), (2, 3)]:
