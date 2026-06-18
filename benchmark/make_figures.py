@@ -223,7 +223,7 @@ def f5_register():
     ax.set_ylabel("recall@5 (factoid 쌍)")
     ax.set_ylim(0, 1.12)
     ax.legend(fontsize=9, frameon=True, edgecolor="#dddddd")
-    save(fig, "fig_07_register.png")
+    save(fig, "fig_06_register.png")
 
 
 # ===== F8. 어휘중첩 편향 검증 — 원본 vs 저어휘중첩 (dumbbell) =====
@@ -259,43 +259,7 @@ def f8_lowoverlap():
     ax.legend(handles=[Patch(color=BASE, label="Lexical Benchmark"),
                        Patch(color=AUG, label="Semantic Benchmark")],
               loc="lower right", fontsize=8.5, frameon=True, edgecolor="#dddddd")
-    save(fig, "fig_08_lowoverlap.png")
-
-
-# ===== F6. 답변모델 비교 (heatmap) =====
-def f6_answer_models():
-    metrics = ["correctness", "faithfulness", "relevancy", "completeness", "context_utilization", "cite_f1"]
-    mlabels = ["정확성", "충실성", "적합성", "완결성", "맥락활용", "인용F1"]
-    files = {
-        "gemma-4-31B": "answer_google_gemma-4-31B-it_good.json",
-        "A.X-4.0 (67B)": "answer_skt_A.X-4.0_good.json",
-        "EXAONE-4.0-32B": "answer_LGAI-EXAONE_EXAONE-4.0-32B_good.json",
-        "Qwen3.6-27B": "answer_Qwen_Qwen3.6-27B_good.json",
-        "Solar-Open-100B": "answer_upstage_Solar-Open-100B_good.json",
-    }
-    data, names = [], []
-    for name, f in files.items():
-        o = rpt(f)["overall"]
-        data.append([o[m] for m in metrics])
-        names.append(name)
-    data = np.array(data)
-    order = np.argsort(-data.mean(axis=1))
-    data, names = data[order], [names[i] for i in order]
-    fig, ax = plt.subplots(figsize=(8, 4.2))
-    im = ax.imshow(data, cmap="YlGnBu", vmin=0.45, vmax=0.82, aspect="auto")
-    ax.set_xticks(range(len(metrics)), labels=mlabels)
-    ax.set_yticks(range(len(names)), labels=names)
-    ax.tick_params(length=0)
-    for i in range(len(names)):
-        for j in range(len(metrics)):
-            v = data[i, j]
-            ax.text(j, i, f"{v:.2f}", ha="center", va="center", fontsize=9,
-                    color="white" if v > 0.70 else INK)
-    for s in ax.spines.values():
-        s.set_visible(False)
-    cb = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.02)
-    cb.outline.set_visible(False)
-    save(fig, "fig_06_answer_models.png")
+    save(fig, "fig_07_lowoverlap.png")
 
 
 if __name__ == "__main__":
@@ -307,6 +271,6 @@ if __name__ == "__main__":
     f3_recall_at_k()
     f4_augmentation()
     f5_register()
-    f6_answer_models()
     f8_lowoverlap()
+    # 답변모델 히트맵(구 fig_06_answer_models)은 표 8과 중복이라 README에서 제외 — figure 미생성.
     print("\n모든 figure 생성 완료 →", FIG)
