@@ -70,10 +70,10 @@ def save(fig, name):
 def f0_pipeline():
     import matplotlib.patches as mpatches
     LIGHT, STAGE = "#eef2f4", "#bfe3dd"   # 일반 박스 / 단계 박스(연한 teal)
-    BW, BH = 2.7, 1.55
+    BW, BH = 2.9, 1.6
     with plt.rc_context({"path.sketch": (1.6, 110, 14), "font.size": 10}):  # 손그림 wiggle
-        fig, ax = plt.subplots(figsize=(9.6, 5.4))
-        ax.set_xlim(0, 12.4)
+        fig, ax = plt.subplots(figsize=(11.2, 5.6))
+        ax.set_xlim(0, 15.4)
         ax.set_ylim(0, 7)
         ax.axis("off")
 
@@ -88,13 +88,13 @@ def f0_pipeline():
             ax.annotate("", xy=p2, xytext=p1,
                         arrowprops=dict(arrowstyle="-|>", lw=2.0, color=INK, shrinkA=3, shrinkB=3))
 
-        y1, y2 = 5.2, 1.7
-        cx = [1.7, 4.85, 8.0, 10.7]   # 행1 4칸
+        y1, y2 = 5.1, 1.7
+        cx = [1.9, 5.7, 9.5, 13.3]   # 행1 4칸(간격 3.8 > 박스폭 2.9, 비겹침)
         box(cx[0], y1, "법령 XML\n· 별표 PDF", LIGHT)
         box(cx[1], y1, "코퍼스 32법령\n(약 3,251 청크)", LIGHT)
-        box(cx[2], y1, "골드셋 240문\nLLM생성 + 일관성필터", LIGHT)
+        box(cx[2], y1, "골드셋 3벤치\nLexical·Semantic·Locator\n(240·240·103문항)", LIGHT, fs=8)
         box(cx[3], y1, "1단계 · 검색 평가\n(청킹·임베딩·검색기\n·리랭커)", STAGE, fs=9)
-        cx2 = [10.7, 6.2, 1.7]        # 행2 (우→좌)
+        cx2 = [13.3, 7.6, 1.9]        # 행2 (우→좌)
         box(cx2[0], y2, "검색 지표\nrecall@k·MRR·nDCG\n(gold = uid)", LIGHT)
         box(cx2[1], y2, "2단계 · 답변 평가\n(답변모델 + judge\n+ 인용검증)", STAGE, fs=9)
         box(cx2[2], y2, "답변 지표\n정확성·충실성\n완결성·인용", LIGHT)
