@@ -202,20 +202,22 @@ def f4_augmentation():
 
 # ===== F6. 어휘중첩 편향 검증: Lexical vs Semantic (dumbbell) =====
 def f6_lowoverlap():
-    # (라벨, 원본리포트, 저중첩리포트)
-    rows = [
-        ("BM25 (어휘)",            "article_bm25_byp-md",                       "article_bm25_byp-md_lowoverlap"),
-        ("벡터 KURE (dense)",      "article_vector_kure-v1",                    "article_vector_kure-v1_byp-md_lowoverlap"),
-        ("하이브리드 (RRF)",       "article_hybrid_kure-v1",                    "article_hybrid_kure-v1_byp-md_lowoverlap"),
-        ("하이브리드+리랭커",      "article_hybrid_kure-v1_rerank",             "article_hybrid_kure-v1_rerank_byp-md_lowoverlap"),
-        ("벡터+리랭커",            "article_vector_kure-v1_rerank",             "article_vector_kure-v1_rerank_byp-md_lowoverlap"),
-        ("HyPE (색인측)",          "article_bm25_kure-v1_hype",                 "article_bm25_kure-v1_hype_byp-md_lowoverlap"),
-        ("HyDE (벡터)",            "article_vector_kure-v1_hyde_byp-md",        "article_vector_kure-v1_hyde_byp-md_lowoverlap"),
-        ("HyDE (하이브리드+리랭커)", "article_hybrid_kure-v1_hyde_rerank_byp-md", "article_hybrid_kure-v1_hyde_rerank_byp-md_lowoverlap"),
+    # 표 5와 동일한 8개 구성. (라벨, Lexical recall@5, Semantic recall@5)
+    def rc5(name):                       # 일반 리포트의 overall recall@5
+        return rpt(f"{name}.json")["overall"]["recall@5"]
+    def lr5(name, mode):                 # LightRAG 모드별 recall@5
+        return rpt(f"{name}.json")["modes"][mode]["overall"]["recall@5"]
+    data = [
+        ("BM25 (어휘)",      rc5("article_bm25_byp-md"),                rc5("article_bm25_byp-md_lowoverlap")),
+        ("벡터 (KURE)",      rc5("article_vector_kure-v1"),             rc5("article_vector_kure-v1_byp-md_lowoverlap")),
+        ("KoE5 (벡터)",      rc5("article_vector_koe5"),                rc5("article_vector_koe5_byp-md_lowoverlap")),
+        ("하이브리드+리랭커", rc5("article_hybrid_kure-v1_rerank"),       rc5("article_hybrid_kure-v1_rerank_byp-md_lowoverlap")),
+        ("벡터+리랭커",      rc5("article_vector_kure-v1_rerank"),       rc5("article_vector_kure-v1_rerank_byp-md_lowoverlap")),
+        ("HyPE (색인측)",    rc5("article_bm25_kure-v1_hype"),           rc5("article_bm25_kure-v1_hype_byp-md_lowoverlap")),
+        ("HyDE (질의측)",    rc5("article_vector_kure-v1_hyde_byp-md"),  rc5("article_vector_kure-v1_hyde_byp-md_lowoverlap")),
+        ("LightRAG (mix)",  lr5("lightrag_eval", "mix"),                lr5("lightrag_eval_lowoverlap", "mix")),
     ]
-    data = [(lab, rpt(f"{o}.json")["overall"]["recall@5"], rpt(f"{l}.json")["overall"]["recall@5"])
-            for lab, o, l in rows]
-    data.sort(key=lambda r: r[1])  # 원본 기준 오름차순(위가 높음)
+    data.sort(key=lambda r: r[2])  # Semantic 기준 오름차순(표 5와 같은 순서, 위가 높음)
     labels = [d[0] for d in data]
     y = np.arange(len(labels))
     fig, ax = plt.subplots(figsize=(8.2, 4.8))
@@ -225,14 +227,14 @@ def f6_lowoverlap():
         ax.plot([ov, lo], [i, i], color="#c9ccd1", lw=2.0, zorder=1)   # 중립 연결선(길이=변화 크기)
         ax.scatter(ov, i, color=BASE, s=70, zorder=3, edgecolor="white", linewidth=0.8)
         ax.scatter(lo, i, color=AUG, s=70, zorder=3, edgecolor="white", linewidth=0.8)
-        ax.text(min(ov, lo) - 0.012, i, f"{min(ov, lo):.2f}", va="center", ha="right", fontsize=8, color=INK)
-        ax.text(max(ov, lo) + 0.012, i, f"{max(ov, lo):.2f}", va="center", ha="left", fontsize=8, color=INK)
+        ax.text(min(ov, lo) - 0.012, i, f"{min(ov, lo):.3f}", va="center", ha="right", fontsize=8, color=INK)
+        ax.text(max(ov, lo) + 0.012, i, f"{max(ov, lo):.3f}", va="center", ha="left", fontsize=8, color=INK)
     ax.set_yticks(y, labels=labels)
     ax.set_xlim(0.45, 0.92)
     ax.set_xlabel("recall@5 (240문)")
     ax.legend(handles=[Patch(color=BASE, label="Lexical Benchmark"),
                        Patch(color=AUG, label="Semantic Benchmark")],
-              loc="lower right", fontsize=8.5, frameon=True, edgecolor="#dddddd")
+              loc="upper left", fontsize=8.5, frameon=True, edgecolor="#dddddd")
     save(fig, "fig_06_lowoverlap.png")
 
 
