@@ -110,8 +110,8 @@ def f0_pipeline():
 
 # ===== 청킹 비교 (E1, recall@5) =====
 def f_chunking():
-    chunkers = [("조(article)", "article"), ("항(hang)", "hang"),
-                ("고정토큰(fixed)", "fixed"), ("계층(parent)", "parent")]
+    chunkers = [("조", "article"), ("항", "hang"),
+                ("고정토큰", "fixed"), ("계층", "parent")]
     bm25 = [rpt(f"{c}_bm25.json")["overall"]["recall@5"] for _, c in chunkers]
     vec = [rpt(f"{c}_vector_kure-v1.json")["overall"]["recall@5"] for _, c in chunkers]
     x = np.arange(len(chunkers))
@@ -149,7 +149,7 @@ def f2_by_type():
         for b, v in zip(bars, vals):
             ax.text(b.get_x() + b.get_width() / 2, v + 0.012, f"{v:.2f}", ha="center", fontsize=8, color=INK)
     ax.set_xticks(x)
-    ax.set_xticklabels(["factoid\n(정의·요건)", "crossref\n(교차참조)", "byeolpyo\n(별표)", "multihop\n(법↔시행령)"])
+    ax.set_xticklabels(["정의·요건\n(factoid)", "교차참조\n(crossref)", "별표\n(byeolpyo)", "법↔시행령\n(multihop)"])
     ax.set_ylabel("recall@5")
     ax.set_ylim(0, 1.1)
     ax.legend(fontsize=9, frameon=True, edgecolor="#dddddd")
