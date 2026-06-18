@@ -74,9 +74,9 @@
 | | ko-reranker[[20]](#ref20) | 한국어 특화 크로스인코더 |
 | | ko-reranker-8k[[21]](#ref21) | 한국어·긴 컨텍스트(8k) 크로스인코더 |
 | | bge-reranker-large[[22]](#ref22) | 영어 대형 크로스인코더, 규모 대조군 |
-| **답변모델**<br>(답변 평가) | Qwen3.6 (27B) · gemma-4 (31B) · EXAONE-4.0 (32B) · A.X-4.0 (67B) · Solar-Open (100B) | 동일 검색·프롬프트에서 5종 비교([§2.4.2](#242-answer-evaluation)). 컨텍스트 포맷·인용 지시도 변형 |
-| 생성모델<br>(고정) | Mistral Small 4 (119B) | 골드셋·HyPE/HyDE 질의 생성. 답변모델과 독립 계열, 한국어·별표 우수 |
-| 심사모델<br>(고정) | gpt-oss-120b | 답변 채점(judge). 생성모델·답변모델과 다른 계열로 오염 방지 |
+| **답변모델**<br>(답변 평가) | Qwen3.6 (27B)[[23]](#ref23) · gemma-4 (31B)[[24]](#ref24) · EXAONE-4.0 (32B)[[25]](#ref25) · A.X-4.0 (67B)[[26]](#ref26) · Solar-Open (100B)[[27]](#ref27) | 동일 검색·프롬프트에서 5종 비교([§2.4.2](#242-answer-evaluation)). 컨텍스트 포맷·인용 지시도 변형 |
+| 생성모델<br>(고정) | Mistral Small 4 (119B)[[28]](#ref28) | 골드셋·HyPE/HyDE 질의 생성. 답변모델과 독립 계열, 한국어·별표 우수 |
+| 심사모델<br>(고정) | gpt-oss-120b[[29]](#ref29) | 답변 채점(judge). 생성모델·답변모델과 다른 계열로 오염 방지 |
 
 > *임베딩* 3종은 모두 **1024차원**이고 XLM-RoBERTa-large 백본을 공유한다(컨텍스트는 KURE·BGE-M3 8192, KoE5 512). 차원이 같아 임베더 비교가 *차원 통제* 상태에서 이뤄진다. *재순위*는 리랭커 *적용 여부 자체*가 종류 선택보다 큰 성능 레버다. *LLM 역할*(생성모델·심사모델·답변모델)은 서로 다른 계열로 분리하며(같은 계열이면 self-enhancement·preference leakage 발생), 모든 모델은 temp=0으로 실행한다.
 
@@ -481,7 +481,7 @@ KA-013-KFinLaw-MCP/
 
 ## References
 
-본 벤치마크가 채택·검증한 기법의 원천. 본문에서는 번호 링크(예: [[4]](#ref4))로 인용한다.
+본 벤치마크가 채택·검증한 기법·모델·도구의 원천. 본문에서는 번호 링크(예: [[4]](#ref4))로 인용한다. [1]~[18]은 기법 논문, [19]~[22]는 도구·리랭커, [23]~[29]는 사용 LLM(모델 카드)이다.
 
 - <a id="ref1"></a>**[1]** Lewis et al. (2020). *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks.* NeurIPS. [arXiv:2005.11401](https://arxiv.org/abs/2005.11401)
 - <a id="ref2"></a>**[2]** Robertson & Zaragoza (2009). *The Probabilistic Relevance Framework: BM25 and Beyond.* Foundations and Trends in IR. [doi:10.1561/1500000019](https://doi.org/10.1561/1500000019)
@@ -505,3 +505,10 @@ KA-013-KFinLaw-MCP/
 - <a id="ref20"></a>**[20]** Dongjin-kr. *ko-reranker* (한국어 reranker, bge-reranker-large 기반 파인튜닝). [huggingface.co/Dongjin-kr/ko-reranker](https://huggingface.co/Dongjin-kr/ko-reranker)
 - <a id="ref21"></a>**[21]** upskyy. *ko-reranker-8k* (한국어·8k 컨텍스트 reranker). [huggingface.co/upskyy/ko-reranker-8k](https://huggingface.co/upskyy/ko-reranker-8k)
 - <a id="ref22"></a>**[22]** Xiao et al. (2024). *C-Pack: Packed Resources For General Chinese Embeddings* (bge-reranker-large). SIGIR. [arXiv:2309.07597](https://arxiv.org/abs/2309.07597)
+- <a id="ref23"></a>**[23]** Qwen Team. *Qwen3.6-27B.* [huggingface.co/Qwen/Qwen3.6-27B](https://huggingface.co/Qwen/Qwen3.6-27B)
+- <a id="ref24"></a>**[24]** Google. *Gemma-4-31B-it.* [huggingface.co/google/gemma-4-31B-it](https://huggingface.co/google/gemma-4-31B-it)
+- <a id="ref25"></a>**[25]** LG AI Research. *EXAONE-4.0-32B.* [huggingface.co/LGAI-EXAONE/EXAONE-4.0-32B](https://huggingface.co/LGAI-EXAONE/EXAONE-4.0-32B)
+- <a id="ref26"></a>**[26]** SK Telecom. *A.X-4.0.* [huggingface.co/skt/A.X-4.0](https://huggingface.co/skt/A.X-4.0)
+- <a id="ref27"></a>**[27]** Upstage. *Solar-Open-100B.* [huggingface.co/upstage/Solar-Open-100B](https://huggingface.co/upstage/Solar-Open-100B)
+- <a id="ref28"></a>**[28]** Mistral AI. *Mistral-Small-4-119B.* [huggingface.co/mistralai/Mistral-Small-4-119B-2603](https://huggingface.co/mistralai/Mistral-Small-4-119B-2603)
+- <a id="ref29"></a>**[29]** OpenAI. *gpt-oss-120b.* [huggingface.co/openai/gpt-oss-120b](https://huggingface.co/openai/gpt-oss-120b)
