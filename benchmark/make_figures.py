@@ -70,14 +70,14 @@ def save(fig, name):
 def f0_pipeline():
     import matplotlib.patches as mpatches
     LIGHT, STAGE = "#eef2f4", "#bfe3dd"   # 일반 박스 / 단계 박스(연한 teal)
-    BW, BH = 2.9, 1.6
-    with plt.rc_context({"path.sketch": (1.6, 110, 14), "font.size": 10}):  # 손그림 wiggle
+    BW, BH = 3.25, 1.75
+    with plt.rc_context({"path.sketch": (1.6, 110, 14), "font.size": 12}):  # 손그림 wiggle
         fig, ax = plt.subplots(figsize=(11.2, 5.6))
         ax.set_xlim(0, 15.4)
         ax.set_ylim(0, 7)
         ax.axis("off")
 
-        def box(cx, cy, text, fc, fs=9.5):
+        def box(cx, cy, text, fc, fs=11.5):
             ax.add_patch(mpatches.FancyBboxPatch(
                 (cx - BW / 2, cy - BH / 2), BW, BH,
                 boxstyle="round,pad=0.05,rounding_size=0.22",
@@ -92,11 +92,11 @@ def f0_pipeline():
         cx = [1.9, 5.7, 9.5, 13.3]   # 행1 4칸(간격 3.8 > 박스폭 2.9, 비겹침)
         box(cx[0], y1, "법령 XML\n· 별표 PDF", LIGHT)
         box(cx[1], y1, "코퍼스 32법령\n(약 3,251 청크)", LIGHT)
-        box(cx[2], y1, "골드셋 3벤치\nLexical·Semantic·Locator\n(240·240·103문항)", LIGHT, fs=8)
-        box(cx[3], y1, "1단계 · 검색 평가\n(청킹·임베딩·검색기\n·리랭커)", STAGE, fs=9)
+        box(cx[2], y1, "골드셋 3벤치\nLexical·Semantic·Locator\n(240·240·103문항)", LIGHT, fs=9.5)
+        box(cx[3], y1, "1단계 · 검색 평가\n(청킹·임베딩·검색기\n·리랭커)", STAGE, fs=10.5)
         cx2 = [13.3, 7.6, 1.9]        # 행2 (우→좌)
         box(cx2[0], y2, "검색 지표\nrecall@k·MRR·nDCG\n(gold = 식별자)", LIGHT)
-        box(cx2[1], y2, "2단계 · 답변 평가\n(답변모델 + judge\n+ 인용검증)", STAGE, fs=9)
+        box(cx2[1], y2, "2단계 · 답변 평가\n(답변모델 + judge\n+ 인용검증)", STAGE, fs=10.5)
         box(cx2[2], y2, "답변 지표\n정확성·충실성\n완결성·인용", LIGHT)
         for a, b in [(0, 1), (1, 2), (2, 3)]:
             arrow((cx[a] + BW / 2, y1), (cx[b] - BW / 2, y1))
@@ -104,7 +104,7 @@ def f0_pipeline():
         arrow((cx2[0] - BW / 2, y2), (cx2[1] + BW / 2, y2))
         arrow((cx2[1] - BW / 2, y2), (cx2[2] + BW / 2, y2))
         ax.text(cx[3] + 0.15, (y1 + y2) / 2, "최적 구성\n고정", ha="left", va="center",
-                fontsize=8.5, color=AUG, style="italic")
+                fontsize=10, color=AUG, style="italic")
         save(fig, "fig_00_pipeline.png")
 
 
