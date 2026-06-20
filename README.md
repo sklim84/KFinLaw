@@ -3,8 +3,6 @@
 **한국 금융 법령으로 한국어 RAG 검색 기법을 정량 비교·평가**하고, 그 결과로
 **국가법령정보센터 연계 MCP/CLI를 설계**하는 KFTC 연구 과제.
 
-> **결론 한 줄.** 한국 금융 법령 RAG는 **조 청킹 + KURE-v1 + 하이브리드 + 리랭커**가 최적이며, 널리 쓰이는 증강기법(HyPE·HyDE·LightRAG)은 모두 증강 전보다 낮다. "○○법 제5조" 류 위치 질의는 RAG가 약해 **구조적 조회(MCP/CLI)**가 정답이다.
-
 `최종 업데이트 2026-06-18`
 
 [**Highlights**](#highlights) · [1. Introduction](#1-introduction) · [2. KFinLaw with RAG](#2-kfinlaw-with-rag) · [3. KFinLaw with MCP](#3-kfinlaw-with-mcp) · [4. KFinLaw with CLI](#4-kfinlaw-with-cli) · [5. Conclusion](#5-conclusion-and-recommendations) · [References](#references)
