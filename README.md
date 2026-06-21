@@ -32,9 +32,9 @@
 | | 목적 | 방향 |
 |---|---|---|
 | 1 | **한국 금융 법령 RAG 검색 기법 비교·평가** | 청킹·임베딩·검색기·리랭커·증강기법을 통제 실험으로 정량 비교. 산출물은 **기법별 정량 검증·문서화** |
-| 2 | 국가법령정보센터 **MCP/CLI** (Claude 호환) | 목적1의 결과(특히 위치 질의 한계)에서 도출. `law.go.kr` 라이브 API(검색·조문·별표·인용검증) 기반, 경량·신선도 우선. **MCP 구현 완료**([§3](#3-kfinlaw-with-mcp)), CLI 예정 |
+| 2 | 국가법령정보센터 **MCP/CLI** (Claude 호환) | 목적1의 결과(특히 위치 질의 한계)에서 도출. `law.go.kr` 라이브 API(검색·조문·별표·인용검증) 기반, 경량·신선도 우선. **MCP·CLI 구현 완료**([§3](#3-kfinlaw-with-mcp)·[§4](#4-kfinlaw-with-cli)) |
 
-> 본 보고서는 **목적1(벤치마크)의 결과**를 중심으로, 그 결과로 설계·구현한 **목적2 MCP**([§3](#3-kfinlaw-with-mcp))를 함께 다룬다. CLI([§4](#4-kfinlaw-with-cli))는 예정이다.
+> 본 보고서는 **목적1(벤치마크)의 결과**를 중심으로, 그 결과로 설계·구현한 **목적2 MCP/CLI**([§3](#3-kfinlaw-with-mcp)·[§4](#4-kfinlaw-with-cli))를 함께 다룬다.
 
 작업 순서는 벤치마크(목적1, [§2](#2-kfinlaw-with-rag))를 먼저 하고, 이어서 MCP([§3](#3-kfinlaw-with-mcp))·CLI([§4](#4-kfinlaw-with-cli))를 진행한다. 각 실험 절은 핵심 질문을 던지고 답하며, 종합 결론·권고는 [§5](#5-conclusion-and-recommendations)에 모은다.
 
@@ -414,9 +414,17 @@ KFinLaw/
 
 ## 4. KFinLaw with CLI
 
-> 🚧 **구현 예정** (목적2 · [`cli/`](cli/) 스텁)
+> ✅ **구현 완료** (목적2 · [`cli/`](cli/) · 사용법 [cli/README](cli/README.md))
 
-§3의 MCP 도구를 감싸는 경량 **CLI**. 터미널에서 법령 검색·조문 조회·별표 확인·인용 검증을 수행하고, 결과를 표준출력/JSON으로 반환한다(스크립트·파이프라인 연계 용도).
+§3 MCP와 **같은 `lawapi` 코어**를 쓰는 터미널용 **CLI**. 법령 검색·조문 조회(시행일 버전)·별표·감독규정·법령용어·위임 추적·인용 검증을 셸에서 수행하고, 결과를 사람이 읽기 좋은 형식 또는 `--json`(스크립트·파이프라인용)으로 출력한다.
+
+```bash
+kfinlaw article 은행법 제1조          # 조문 직접 조회
+kfinlaw search 전자금융 --json | jq .  # 검색 → JSON 파이프
+kfinlaw verify "「자본시장법」 제8조"    # 인용 실재 검증
+```
+
+CLI 구현은 MCP와 **한 패키지**(`mcp/kfinlaw_mcp/cli.py`)라 한 번의 배포로 `kfinlaw`(CLI)·`kfinlaw-mcp`(서버)가 함께 설치된다. 전체 명령은 [cli/README](cli/README.md).
 
 ---
 

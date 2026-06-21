@@ -9,8 +9,6 @@
 """
 from __future__ import annotations
 
-import re
-
 from mcp.server.fastmcp import FastMCP
 
 from . import lawapi as L
@@ -99,71 +97,17 @@ def trace_delegation(law_name: str, article_no: str) -> dict:
     위임 대상(시행령·시행규칙·감독규정) 후보를 찾아준다.
 
     금융 규제는 법→시행령→감독규정으로 기준이 이어져, 실제 수치는 하위규범에 있다."""
-    art = _safe(L.get_article, law_name, article_no)
-    if isinstance(art, dict) and art.get("error"):
-        return art
-    cues = L.detect_delegation(art["본문"])
-    base = re.sub(r"\s*(시행령|시행규칙)$", "", law_name)  # '○○법 시행령' → '○○법'
-    candidates = []
-    for c in cues:
-        if c["유형"] == "시행령":
-            candidates += _resolve_candidates(f"{base} 시행령", "law")
-        elif c["유형"] == "시행규칙":
-            candidates += _resolve_candidates(f"{base} 시행규칙", "law")
-        else:  # 감독규정·고시 → 행정규칙
-            candidates += _resolve_candidates(base, "admrul")
-    return {
-        "법령": art["법령명"], "조": art["조"],
-        "위임단서": cues,
-        "위임대상후보": candidates or "(자동 매칭 없음 — 위임단서의 문구로 직접 검색 권장)",
-    }
-
-
-def _resolve_candidates(name: str, target: str) -> list:
-    try:
-        if target == "law":
-            return [{"종류": "법령", **h} for h in L.search_law(name, financial=False, display=3)[:3]]
-        return [{"종류": "행정규칙", **h} for h in L.search_admrul(name, display=3)[:3]]
-    except L.LawAPIError:
-        return []
+    return _safe(L.trace_delegation, law_name, article_no)
 
 
 # ── 인용 검증 ────────────────────────────────────────────────────────────
-_CITE_RX = re.compile(r"「([^」]+)」\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)?")
-
-
 @mcp.tool()
 def verify_citation(text: str) -> dict:
     """문장 속 법령 인용(「법령명」 제N조)을 찾아 실제로 존재하는지 검증한다.
 
     LLM이 지어낸(환각) 법령명·조문을 걸러낸다. 인용마다 법령 존재 여부와,
     조문이 명시됐으면 그 조문의 존재 여부·제목을 돌려준다."""
-    cites = _CITE_RX.findall(text)
-    if not cites:
-        return {"검증": [], "비고": "「」로 묶인 법령 인용을 찾지 못했습니다."}
-    results = []
-    for law, art in cites:
-        law = law.strip()
-        rec: dict = {"법령": law, "조문": art.strip() or None}
-        hits = _safe(L.search_law, law, financial=False)
-        if isinstance(hits, dict) or not hits:
-            rec.update(법령존재=False, 결과="✗ 존재하지 않는 법령명")
-            results.append(rec)
-            continue
-        exact = any(h["법령명"] == law for h in hits)
-        rec["법령존재"] = True
-        rec["법령일치"] = "정확" if exact else f"유사(예: {hits[0]['법령명']})"
-        if art.strip():
-            got = _safe(L.get_article, law, art)
-            if isinstance(got, dict) and got.get("error"):
-                rec.update(조문존재=False, 결과=f"△ 법령은 있으나 {art.strip()} 확인 실패")
-            else:
-                rec.update(조문존재=True, 조문제목=got["조문제목"],
-                           결과=f"✓ {got['조']}({got['조문제목']}) 존재")
-        else:
-            rec["결과"] = "✓ 법령 존재" if exact else "△ 유사 법령명"
-        results.append(rec)
-    return {"검증": results}
+    return _safe(L.verify_citation, text)
 
 
 def main():

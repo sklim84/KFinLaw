@@ -115,6 +115,7 @@ def search_law(query: str, financial: bool = True, display: int = 20) -> list[di
         lid = _t(law, "법령ID").zfill(6)
         out.append({
             "법령명": _t(law, "법령명한글"),
+            "약칭": _t(law, "법령약칭명"),
             "법령ID": lid,
             "MST": _t(law, "법령일련번호"),
             "시행일자": _t(law, "시행일자"),
@@ -298,3 +299,76 @@ def detect_delegation(text: str) -> list[dict]:
             s = max(0, m.start() - 25)
             found.append({"유형": kind, "단서": text[s:m.end() + 10].strip().replace("\n", " ")})
     return found
+
+
+def _deleg_candidates(name: str, target: str) -> list[dict]:
+    try:
+        if target == "law":
+            return [{"종류": "법령", **h} for h in search_law(name, financial=False, display=3)[:3]]
+        return [{"종류": "행정규칙", **h} for h in search_admrul(name, display=3)[:3]]
+    except LawAPIError:
+        return []
+
+
+def trace_delegation(law_name: str, article_no: str) -> dict:
+    """조문의 위임('대통령령으로 정한다'·'금융위원회가 고시한다' 등)을 탐지하고
+    위임 대상(시행령·시행규칙·감독규정) 후보를 찾는다. (server·cli 공용)"""
+    art = get_article(law_name, article_no)
+    cues = detect_delegation(art["본문"])
+    base = re.sub(r"\s*(시행령|시행규칙)$", "", law_name)  # '○○법 시행령' → '○○법'
+    candidates: list[dict] = []
+    for c in cues:
+        if c["유형"] == "시행령":
+            candidates += _deleg_candidates(f"{base} 시행령", "law")
+        elif c["유형"] == "시행규칙":
+            candidates += _deleg_candidates(f"{base} 시행규칙", "law")
+        else:  # 감독규정·고시 → 행정규칙
+            candidates += _deleg_candidates(base, "admrul")
+    return {
+        "법령": art["법령명"], "조": art["조"],
+        "위임단서": cues,
+        "위임대상후보": candidates or "(자동 매칭 없음 — 위임단서의 문구로 직접 검색 권장)",
+    }
+
+
+# ── 인용 검증 ────────────────────────────────────────────────────────────
+_CITE_RX = re.compile(r"「([^」]+)」\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)?")
+
+
+def verify_citation(text: str) -> dict:
+    """문장 속 「법령명」 제N조 인용을 찾아 실제 존재 여부를 검증한다(환각 차단). (server·cli 공용)"""
+    cites = _CITE_RX.findall(text)
+    if not cites:
+        return {"검증": [], "비고": "「」로 묶인 법령 인용을 찾지 못했습니다."}
+    results = []
+    for law, art in cites:
+        law = law.strip()
+        rec: dict = {"법령": law, "조문": art.strip() or None}
+        try:
+            hits = search_law(law, financial=False)
+        except LawAPIError:
+            hits = []
+        if not hits:
+            rec.update(법령존재=False, 결과="✗ 존재하지 않는 법령명")
+            results.append(rec)
+            continue
+        exact = any(h["법령명"] == law or h.get("약칭") == law for h in hits)
+        rec["법령존재"] = True
+        if not exact:
+            # 유사 매칭만 있으면 다른 법의 조문을 오인할 수 있어 조문 검증을 하지 않는다(환각 방지).
+            rec["법령일치"] = f"유사(예: {hits[0]['법령명']})"
+            rec["결과"] = f"△ 정확히 일치하는 법령명 없음 — 유사: {hits[0]['법령명']}"
+            results.append(rec)
+            continue
+        rec["법령일치"] = "정확"
+        if art.strip():
+            try:
+                got = get_article(law, art)
+                rec.update(조문존재=True, 조문제목=got["조문제목"],
+                           결과=f"✓ {got['조']}({got['조문제목']}) 존재")
+            except LawAPIError:
+                rec.update(조문존재=False, 결과=f"△ 법령은 있으나 {art.strip()} 미확인(없는 조문일 수 있음)")
+        else:
+            rec["결과"] = "✓ 법령 존재"
+        results.append(rec)
+    return {"검증": results}

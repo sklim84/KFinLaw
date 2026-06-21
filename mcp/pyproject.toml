@@ -14,6 +14,7 @@ dependencies = ["mcp>=1.2.0"]
 
 [project.scripts]
 kfinlaw-mcp = "kfinlaw_mcp.server:main"
+kfinlaw = "kfinlaw_mcp.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/sklim84/KFinLaw"
