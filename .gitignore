@@ -55,5 +55,5 @@ rag/tools/flash_attn_stub/
 rag/benchmark/lightrag_storage/
 
 # 빌드 산출물 (uv build)
-mcp/dist/
-mcp/build/
+tool/dist/
+tool/build/

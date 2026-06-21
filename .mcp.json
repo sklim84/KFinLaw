@@ -2,7 +2,7 @@
   "mcpServers": {
     "kfinlaw": {
       "command": "python3",
-      "args": ["mcp/server.py"],
+      "args": ["tool/server.py"],
       "env": { "LAW_OC": "${LAW_OC}" }
     }
   }
