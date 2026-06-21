@@ -154,6 +154,9 @@ def get_article(law_name: str, article_no: str, effective_date: str | None = Non
     jo = root.find(".//조문")
     units = jo.findall("조문단위") if jo is not None else []
     for u in units:
+        # 장/절 제목 행(조문여부='전문')과 부칙은 본칙 조문번호와 겹칠 수 있어 제외
+        if _t(u, "조문여부") != "조문":
+            continue
         if _t(u, "조문번호") == jono and _t(u, "조문가지번호") == ga:
             return {
                 "법령명": name, "MST": mst,
