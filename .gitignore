@@ -53,3 +53,7 @@ rag/tools/flash_attn_stub/
 
 # LightRAG 색인 storage (재생성)
 rag/benchmark/lightrag_storage/
+
+# 빌드 산출물 (uv build)
+mcp/dist/
+mcp/build/
