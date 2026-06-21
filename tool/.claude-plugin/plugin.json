@@ -1,5 +1,5 @@
 {
-  "name": "kfinlaw-mcp",
+  "name": "kfinlaw",
   "displayName": "KFinLaw MCP",
   "description": "한국 금융 법령 MCP — law.go.kr 라이브 API로 법령 검색·조문 조회(시행일 버전)·별표·금융위 감독규정·법령용어·위임 추적·인용 검증",
   "version": "0.1.0",

@@ -3,14 +3,14 @@
 국가법령정보센터 `law.go.kr` 라이브 API를 **Claude(MCP)** 와 **터미널(CLI)** 양쪽에서 쓰는 경량 도구.
 무거운 인덱싱 없이 법령 검색·조문·별표·감독규정·인용검증을 실시간 조회한다(설계·근거는 [루트 README §3](https://github.com/sklim84/KFinLaw/blob/main/README.md#3-kfinlaw-with-mcp)).
 
-한 패키지(`kfinlaw_mcp`)가 콘솔 스크립트 **`kfinlaw-mcp`(MCP 서버)** 와 **`kfinlaw`(CLI)** 둘 다 제공한다.
+한 패키지(`kfinlaw`)가 콘솔 스크립트 **`kfinlaw-mcp`(MCP 서버)** 와 **`kfinlaw`(CLI)** 둘 다 제공한다.
 핵심 로직(`lawapi`)은 표준 라이브러리(`urllib`·`xml.etree`)만 쓰고, 외부 의존은 MCP SDK 하나다.
 
 ## 설치
 
 ```bash
 uvx --from ./tool kfinlaw-mcp          # ① 무설치 실행(uv) — 의존성 자동 해결
-pip install ./tool                     # ② 설치 → 콘솔 스크립트 kfinlaw-mcp
+pip install ./tool                     # ② 설치 → 콘솔 kfinlaw(CLI)·kfinlaw-mcp(서버)
 pip install -r tool/requirements.txt   # ③ SDK만(직접 실행 python3 tool/server.py 용)
 
 export LAW_OC=<본인_인증키>             # 공통: open.law.go.kr 에서 발급
@@ -48,7 +48,7 @@ claude mcp add kfinlaw --env LAW_OC=<본인_인증키> -- python3 /절대경로/
 
 ```bash
 /plugin marketplace add sklim84/KFinLaw
-/plugin install kfinlaw-mcp@kfinlaw
+/plugin install kfinlaw@kfinlaw
 ```
 
 직접 실행(디버그): `LAW_OC=<키> python3 tool/server.py` (stdio 대기).
@@ -56,8 +56,8 @@ claude mcp add kfinlaw --env LAW_OC=<본인_인증키> -- python3 /절대경로/
 ## 배포
 
 - **uvx(무설치):** `uvx --from <경로|git+URL> kfinlaw-mcp` — uv가 의존성까지 빌드·실행.
-- **PyPI(유지보수자):** `cd tool && uv build && uv publish`(또는 `python -m build && twine upload dist/*`). 공개 후엔 어디서나 `uvx kfinlaw-mcp`.
-- **플러그인:** 저장소에 [`.claude-plugin/marketplace.json`](https://github.com/sklim84/KFinLaw/blob/main/.claude-plugin/marketplace.json) + [`mcp/.claude-plugin/plugin.json`](https://github.com/sklim84/KFinLaw/blob/main/tool/.claude-plugin/plugin.json) 동봉(MCP 서버는 `uvx --from ${CLAUDE_PLUGIN_ROOT} kfinlaw-mcp`로 기동).
+- **PyPI(유지보수자):** `cd tool && uv build && uv publish`(또는 `python -m build && twine upload dist/*`). 공개 후엔 어디서나 `uvx kfinlaw`(CLI)·`uvx --from kfinlaw kfinlaw-mcp`(서버).
+- **플러그인:** 저장소에 [`.claude-plugin/marketplace.json`](https://github.com/sklim84/KFinLaw/blob/main/.claude-plugin/marketplace.json) + [`tool/.claude-plugin/plugin.json`](https://github.com/sklim84/KFinLaw/blob/main/tool/.claude-plugin/plugin.json) 동봉(MCP 서버는 `uvx --from ${CLAUDE_PLUGIN_ROOT} kfinlaw-mcp`로 기동).
 
 ## 도구 (9종)
 
@@ -82,7 +82,7 @@ kfinlaw article 은행법 제1조              # 조문 직접 조회(--date YYY
 kfinlaw search 전자금융 --json | jq .     # 검색 → JSON 파이프
 kfinlaw admrul-text <ID> --article 제3조  # 감독규정 특정 조
 kfinlaw verify "「자본시장법」 제8조"       # 인용 실재 검증
-# python3 tool/cli.py ... (미설치 직접 실행) · python -m kfinlaw_mcp.cli ...
+# python3 tool/cli.py ... (미설치 직접 실행) · python -m kfinlaw.cli ...
 ```
 
 명령: `search · article · versions · byeolpyo · admrul · admrul-text · term · delegation · verify`

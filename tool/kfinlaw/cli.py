@@ -3,7 +3,7 @@
 MCP 서버(server.py)와 동일한 lawapi 코어를 재사용한다. 결과는 사람이 읽기 좋은
 형식으로 출력하고, --json을 주면 스크립트·파이프라인용 JSON으로 출력한다.
 
-실행:  LAW_OC=<인증키> kfinlaw <명령> ...   (또는 python -m kfinlaw_mcp.cli)
+실행:  LAW_OC=<인증키> kfinlaw <명령> ...   (또는 python -m kfinlaw.cli)
 예:    kfinlaw article 은행법 제1조
        kfinlaw search 전자금융 --json | jq .
 """

@@ -111,7 +111,7 @@ def verify_citation(text: str) -> dict:
 
 
 def main():
-    """콘솔 엔트리포인트(kfinlaw-mcp) · `python -m kfinlaw_mcp.server` 진입점."""
+    """콘솔 엔트리포인트(kfinlaw-mcp) · `python -m kfinlaw.server` 진입점."""
     mcp.run()
 
 

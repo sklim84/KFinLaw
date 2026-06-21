@@ -5,7 +5,7 @@
 
 `최종 업데이트 2026-06-21`
 
-[**Quick Start**](#quick-start) · [핵심 결과](#핵심-결과) · [구성](#구성) · [벤치마크 상세](rag/README.md) · [도구 사용법](tool/README.md)
+[**Quick Start**](#quick-start) · [도구](#도구) · [핵심 결과](#핵심-결과) · [구성](#구성) · [벤치마크 상세](rag/README.md) · [도구 사용법](tool/README.md)
 
 ---
 
@@ -22,10 +22,31 @@ uvx --from ./tool kfinlaw search 전자금융 --json
 
 # Claude Code 플러그인: 마켓플레이스 등록 후 설치
 /plugin marketplace add sklim84/KFinLaw
-/plugin install kfinlaw-mcp@kfinlaw
+/plugin install kfinlaw@kfinlaw
 ```
 
 설치·연동(MCP `.mcp.json` · Claude Desktop · PyPI)과 전체 명령(9개 도구)은 **[tool/README](tool/README.md)**.
+
+---
+
+## 도구
+
+`law.go.kr` 라이브 API를 **MCP 도구 9종**으로 노출하고, 같은 코어를 **CLI**로도 쓴다(설치·연동은 [tool/README](tool/README.md)).
+
+| MCP 도구 | 기능 | API |
+|---|---|---|
+| `search_law` | 법령명·키워드 검색(금융 코퍼스 우선) | law |
+| `get_article` | 법령명+조번호 → 조문 본문(시행일 버전) | law / eflaw |
+| `list_law_versions` | 시행일 버전 목록(개정 이력) | eflaw |
+| `get_byeolpyo` | 별표·서식 검색(요율·비율·한도) | licbyl |
+| `search_admrul` | 행정규칙 검색(금융위 감독규정·금감원 시행세칙) | admrul |
+| `get_admrul` | 행정규칙 본문(특정 조) | admrul |
+| `get_term` | 법령용어 법적 정의 | lstrm |
+| `trace_delegation` | 위임(대통령령·고시) 탐지 → 시행령·감독규정 | law / admrul |
+| `verify_citation` | 「법령명」 제N조 인용의 실재 검증(환각 차단) | law |
+
+**CLI**: 터미널에서 `kfinlaw <명령>` (사람용 출력 / `--json` 파이프).
+`search · article · versions · byeolpyo · admrul · admrul-text · term · delegation · verify`
 
 ---
 
@@ -38,6 +59,26 @@ uvx --from ./tool kfinlaw search 전자금융 --json
 - 🔬 **어휘격차가 크면 최적이 벡터 + 리랭커로 역전**: Semantic에서 BM25 붕괴(0.835→0.510), 벡터는 불변.
 - ✅ **답변모델 품질은 크기로 예측 안 됨**: 31B gemma-4가 100B·67B를 앞섬.
 - 📍 **위치 질의("○○법 제5조")는 RAG의 약점**(최고 recall 0.66) → **구조적 조회(MCP/CLI)**가 정답.
+
+> **표 1. 종합 리더보드** (검색 구성별 Lexical·Semantic recall@5·MRR·nDCG@10, 평균 recall@5 순). 방법론·전체 분석은 [rag/README](rag/README.md).
+
+| # | 검색기 | 리랭커 | 증강 | **Lexical**<br>R@5 | MRR | nDCG | **Semantic**<br>R@5 | MRR | nDCG | 평균<br>R@5 |
+|:-:|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| 1 🏆 | 하이브리드(BM25+KURE) | bge-reranker-v2-m3 | - | 0.860 | 0.775 | 0.793 | 0.756 | 0.661 | 0.684 | **0.808** |
+| 2 | 하이브리드(BM25+KURE) | ko-reranker | - | 0.838 | 0.729 | 0.754 | 0.769 | 0.672 | 0.691 | **0.803** |
+| 3 | 벡터(KURE) | bge-reranker-v2-m3 | - | 0.808 | 0.748 | 0.751 | 0.777 | 0.661 | 0.684 | **0.793** |
+| 4 | 하이브리드(BM25+KURE) | ko-reranker-8k | - | 0.863 | 0.785 | 0.804 | 0.708 | 0.608 | 0.637 | **0.785** |
+| 5 | 하이브리드(BM25+KURE) | bge-reranker-v2-m3 | HyDE | 0.812 | 0.743 | 0.750 | 0.742 | 0.657 | 0.669 | **0.777** |
+| 6 | 벡터(KURE) | - | - | 0.767 | 0.656 | 0.672 | 0.767 | 0.612 | 0.648 | **0.767** |
+| 7 | 하이브리드(BM25+KURE) | bge-reranker-large | - | 0.798 | 0.699 | 0.719 | 0.729 | 0.621 | 0.644 | **0.764** |
+| 8 | LightRAG(naive) | - | - | 0.738 | 0.639 | 0.648 | 0.767 | 0.616 | 0.649 | **0.752** |
+| 9 | 하이브리드(BM25+KURE) | - | - | 0.831 | 0.710 | 0.735 | 0.658 | 0.562 | 0.588 | **0.745** |
+| 10 | 벡터(KURE) | bge-reranker-v2-m3 | HyDE+HyPE | 0.721 | 0.680 | 0.672 | 0.667 | 0.588 | 0.595 | **0.694** |
+| 11 | BM25 | - | - | 0.835 | 0.707 | 0.741 | 0.510 | 0.397 | 0.430 | **0.673** |
+| 12 | LightRAG(mix) | - | - | 0.665 | 0.606 | 0.616 | 0.665 | 0.552 | 0.572 | **0.665** |
+| 13 | 벡터(KURE) | - | HyPE | 0.721 | 0.622 | 0.637 | 0.579 | 0.500 | 0.521 | **0.650** |
+| 14 | 벡터(KURE) | - | HyDE | 0.652 | 0.558 | 0.572 | 0.592 | 0.469 | 0.499 | **0.622** |
+| 15 | 벡터(KURE) | - | HyDE+HyPE | 0.562 | 0.515 | 0.529 | 0.490 | 0.382 | 0.416 | **0.526** |
 
 ---
 
@@ -53,7 +94,7 @@ KFinLaw/
 ├── rag/      # RAG 벤치마크 (cd rag 후 python -m benchmark.<모듈>)
 │   └── benchmark/ · scripts/ · serving/ · config.yaml · data/ · tools/
 ├── tool/     # kfinlaw 패키지: MCP 서버 + CLI
-│   └── kfinlaw_mcp/ · pyproject.toml · .claude-plugin/
+│   └── kfinlaw/ · pyproject.toml · .claude-plugin/
 ├── .mcp.json            # Claude Code MCP 등록(kfinlaw)
 └── .claude-plugin/      # 플러그인 마켓플레이스
 ```
