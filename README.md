@@ -408,7 +408,7 @@ KFinLaw/
 - **핵심:** `search_law` · `get_article`(시행일 버전 포함) · `get_byeolpyo` · `verify_citation`(「법령명」 제N조 인용의 실재 검증으로 환각 차단)
 - **금융 특화:** `search_admrul`/`get_admrul`(금융위 감독규정·금감원 시행세칙) · `get_term`(법령용어 정의) · `list_law_versions`(시행일 이력) · `trace_delegation`(법→시행령→감독규정 위임 추적)
 
-위치 질의는 `get_article`의 구조적 조회로 RAG의 약점(최고 recall 0.66)을 메운다. 인증키(`LAW_OC`)·등록법·전체 명세는 [mcp/README](mcp/README.md)에 있다.
+위치 질의는 `get_article`의 구조적 조회로 RAG의 약점(최고 recall 0.66)을 메운다. 배포는 **uvx**(`uvx kfinlaw-mcp`)·**Claude Code 플러그인**(`/plugin marketplace add sklim84/KFinLaw`)을 지원한다. 인증키(`LAW_OC`)·등록법·전체 명세는 [mcp/README](mcp/README.md)에 있다.
 
 ---
 

@@ -1,0 +1,27 @@
+{
+  "name": "kfinlaw-mcp",
+  "displayName": "KFinLaw MCP",
+  "description": "한국 금융 법령 MCP — law.go.kr 라이브 API로 법령 검색·조문 조회(시행일 버전)·별표·금융위 감독규정·법령용어·위임 추적·인용 검증",
+  "version": "0.1.0",
+  "author": { "name": "sklim84" },
+  "homepage": "https://github.com/sklim84/KFinLaw",
+  "repository": "https://github.com/sklim84/KFinLaw",
+  "license": "MIT",
+  "keywords": ["finance", "law", "korean", "mcp", "law.go.kr"],
+  "userConfig": {
+    "law_oc_key": {
+      "type": "string",
+      "title": "법제처 Open API 인증키(OC)",
+      "description": "open.law.go.kr 에서 발급받은 OC 인증키",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "mcpServers": {
+    "kfinlaw": {
+      "command": "uvx",
+      "args": ["--from", "${CLAUDE_PLUGIN_ROOT}", "kfinlaw-mcp"],
+      "env": { "LAW_OC": "${user_config.law_oc_key}" }
+    }
+  }
+}

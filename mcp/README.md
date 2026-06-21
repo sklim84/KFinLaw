@@ -8,8 +8,11 @@
 ## 설치
 
 ```bash
-pip install -r mcp/requirements.txt    # mcp SDK (그 외는 표준 라이브러리만)
-export LAW_OC=<본인_인증키>              # open.law.go.kr 에서 발급
+uvx --from ./mcp kfinlaw-mcp          # ① 무설치 실행(uv) — 의존성 자동 해결
+pip install ./mcp                     # ② 설치 → 콘솔 스크립트 kfinlaw-mcp
+pip install -r mcp/requirements.txt   # ③ SDK만(직접 실행 python3 mcp/server.py 용)
+
+export LAW_OC=<본인_인증키>             # 공통: open.law.go.kr 에서 발급
 ```
 
 ## Claude 연동
@@ -40,7 +43,20 @@ claude mcp add kfinlaw --env LAW_OC=<본인_인증키> -- python3 /절대경로/
 }
 ```
 
+**D. Claude Code 플러그인** — 마켓플레이스로 원클릭 설치(설치 시 OC키 입력):
+
+```bash
+/plugin marketplace add sklim84/KFinLaw
+/plugin install kfinlaw-mcp@kfinlaw
+```
+
 직접 실행(디버그): `LAW_OC=<키> python3 mcp/server.py` (stdio 대기).
+
+## 배포
+
+- **uvx(무설치):** `uvx --from <경로|git+URL> kfinlaw-mcp` — uv가 의존성까지 빌드·실행.
+- **PyPI(유지보수자):** `cd mcp && uv build && uv publish`(또는 `python -m build && twine upload dist/*`). 공개 후엔 어디서나 `uvx kfinlaw-mcp`.
+- **플러그인:** 저장소에 [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json) + [`mcp/.claude-plugin/plugin.json`](.claude-plugin/plugin.json) 동봉(MCP 서버는 `uvx --from ${CLAUDE_PLUGIN_ROOT} kfinlaw-mcp`로 기동).
 
 ## 도구 (9종)
 

@@ -1,0 +1,12 @@
+{
+  "name": "kfinlaw",
+  "owner": { "name": "sklim84" },
+  "description": "KFinLaw — 한국 금융 법령 도구 (국가법령정보센터 law.go.kr 라이브 API)",
+  "plugins": [
+    {
+      "name": "kfinlaw-mcp",
+      "source": "./mcp",
+      "description": "한국 금융 법령 MCP 서버 — 법령 검색·조문·별표·감독규정·법령용어·시행일·위임추적·인용검증(9개 도구)"
+    }
+  ]
+}
