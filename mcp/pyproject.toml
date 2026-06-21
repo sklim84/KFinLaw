@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kfinlaw-mcp"
+version = "0.1.0"
+description = "한국 금융 법령 MCP 서버 — 국가법령정보센터 law.go.kr 라이브 API(검색·조문·별표·감독규정·인용검증)를 Claude에 연결"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["mcp", "korean-law", "law.go.kr", "financial-regulation", "claude"]
+dependencies = ["mcp>=1.2.0"]
+
+[project.scripts]
+kfinlaw-mcp = "kfinlaw_mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/sklim84/KFinLaw"
+Repository = "https://github.com/sklim84/KFinLaw"
+
+[tool.hatch.build.targets.wheel]
+packages = ["kfinlaw_mcp"]
+# finance_corpus.json은 패키지 디렉토리 내부라 휠에 자동 포함됨

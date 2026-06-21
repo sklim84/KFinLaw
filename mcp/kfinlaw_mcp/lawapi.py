@@ -19,7 +19,8 @@ SEARCH_URL = "https://www.law.go.kr/DRF/lawSearch.do"
 SERVICE_URL = "https://www.law.go.kr/DRF/lawService.do"
 
 # 금융 코퍼스(목적1 32개 핵심 금융법) — search 결과의 금융 도메인 스코핑에 사용.
-_CORPUS_PATH = Path(__file__).resolve().parent.parent / "rag" / "benchmark" / "corpus_ids.json"
+# 패키지에 동봉(설치 후에도 동작). 원천은 rag/benchmark/corpus_ids.json.
+_CORPUS_PATH = Path(__file__).resolve().parent / "finance_corpus.json"
 
 
 class LawAPIError(Exception):
