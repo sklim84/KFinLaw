@@ -238,43 +238,45 @@ def search_admrul(query: str, display: int = 20) -> list[dict]:
     return out
 
 
-def get_admrul(admrul_id: str, max_chars: int = 4000) -> dict:
-    """행정규칙 본문(조문 평문). 길면 max_chars로 절단."""
+def get_admrul(admrul_id: str, article_no: str = "", max_chars: int = 6000) -> dict:
+    """행정규칙 본문. article_no(예 '제3조')를 주면 그 조문만, 없으면 전문(길면 max_chars 절단).
+
+    감독규정은 수십~수백 조로 방대해, 보통 특정 조를 article_no로 조회하는 편이 유용하다."""
     root = _xml(_request(SERVICE_URL, {"target": "admrul", "ID": admrul_id}))
     info = root.find(".//행정규칙기본정보")
-    body_parts = []
-    for jo in root.findall(".//조문내용"):
-        if jo.text:
-            body_parts.append(jo.text.strip())
-    body = "\n".join(body_parts).strip()
-    truncated = len(body) > max_chars
-    return {
+    meta = {
         "행정규칙명": _t(info, "행정규칙명"),
         "종류": _t(info, "행정규칙종류"),
         "소관부처": _t(info, "소관부처명"),
         "시행일자": _t(info, "시행일자"),
-        "본문": body[:max_chars] + ("\n…(이하 생략)" if truncated else ""),
-        "절단됨": truncated,
     }
+    contents = [c.text.strip() for c in root.findall(".//조문내용") if c.text and c.text.strip()]
+    if article_no:
+        jono, ga = parse_article_no(article_no)
+        for c in contents:
+            ok = c.startswith(f"제{jono}조의{ga}") if ga else bool(re.match(rf"제{jono}조(?!의\d)", c))
+            if ok:
+                return {**meta, "조": f"제{jono}조" + (f"의{ga}" if ga else ""), "본문": c}
+        raise LawAPIError(f"{meta['행정규칙명']}에서 제{jono}조{('의'+ga) if ga else ''}를 찾지 못했습니다.")
+    body = "\n".join(contents)
+    truncated = len(body) > max_chars
+    return {**meta,
+            "본문": body[:max_chars] + ("\n…(이하 생략 — article_no로 특정 조 조회 권장)" if truncated else ""),
+            "절단됨": truncated}
 
 
 # ── 법령용어(lstrm) ──────────────────────────────────────────────────────
 def get_term(term: str) -> list[dict]:
-    """법령용어 정의 조회 → [{용어, 정의, 출처}]."""
+    """법령용어 정의 조회 → [{용어, 정의, 출처}]. (lstrm 서비스는 대표 정의 1건 반환)"""
     root = _xml(_request(SERVICE_URL, {"target": "lstrm", "query": term}))
-    out = []
-    # 단건/다건 모두 대응: LsTrmService 루트 자체가 1건일 수 있음
-    nodes = root.findall(".//법령용어") or [root]
-    for n in nodes:
-        defn = _t(n, "법령용어정의")
-        if not defn and root.findtext("법령용어정의"):
-            defn = _t(root, "법령용어정의")
-        out.append({
-            "용어": _t(n, "법령용어명_한글") or _t(root, "법령용어명_한글") or term,
-            "정의": defn or _t(root, "법령용어정의"),
-            "출처": _t(n, "출처") or _t(root, "출처"),
-        })
-    return [o for o in out if o["정의"]]
+    defn = _t(root, "법령용어정의")
+    if not defn:
+        return []
+    return [{
+        "용어": _t(root, "법령용어명_한글") or term,
+        "정의": defn,
+        "출처": _t(root, "출처"),
+    }]
 
 
 # ── 위임 체인 추적 ───────────────────────────────────────────────────────

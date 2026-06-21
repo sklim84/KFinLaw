@@ -78,9 +78,12 @@ def search_admrul(query: str) -> list | dict:
 
 
 @mcp.tool()
-def get_admrul(admrul_id: str) -> dict:
-    """행정규칙 본문(조문 평문)을 조회한다. admrul_id는 search_admrul의 'ID'."""
-    return _safe(L.get_admrul, admrul_id)
+def get_admrul(admrul_id: str, article_no: str = "") -> dict:
+    """행정규칙 본문을 조회한다. admrul_id는 search_admrul의 'ID'.
+
+    감독규정은 방대하므로 article_no(예 '제3조')로 특정 조만 받는 것을 권장한다.
+    생략하면 전문(길면 절단)."""
+    return _safe(L.get_admrul, admrul_id, article_no=article_no)
 
 
 # ── 법령용어 ─────────────────────────────────────────────────────────────

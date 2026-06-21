@@ -42,7 +42,7 @@ claude mcp add kfinlaw --env LAW_OC=<본인_인증키> -- python /절대경로/m
 | `list_law_versions` | 시행일 버전 목록(개정 이력) | eflaw |
 | `get_byeolpyo` | 별표·서식 검색(요율·비율·한도·서식) | licbyl |
 | `search_admrul` | 행정규칙 검색 — 금융위 감독규정·금감원 시행세칙 | admrul |
-| `get_admrul` | 행정규칙 본문 조회 | admrul |
+| `get_admrul` | 행정규칙 본문 조회(`article_no`로 특정 조) | admrul |
 | `get_term` | 법령용어 법적 정의 | lstrm |
 | `trace_delegation` | 조문의 위임(대통령령·고시) 탐지 → 시행령·감독규정 후보 | law / admrul |
 | `verify_citation` | 「법령명」 제N조 인용의 실재 검증(환각 차단) | law |
