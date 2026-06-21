@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "kfinlaw": {
+      "command": "python3",
+      "args": ["mcp/server.py"],
+      "env": { "LAW_OC": "${LAW_OC}" }
+    }
+  }
+}

@@ -5,33 +5,42 @@
 
 표준 라이브러리(`urllib`·`xml.etree`)만으로 동작하며, 외부 의존은 MCP SDK 하나다.
 
-## 설치 · 실행
+## 설치
 
 ```bash
-pip install -r mcp/requirements.txt          # mcp SDK
-export LAW_OC=<본인_인증키>                    # open.law.go.kr 에서 발급
-python mcp/server.py                          # stdio MCP 서버
+pip install -r mcp/requirements.txt    # mcp SDK (그 외는 표준 라이브러리만)
+export LAW_OC=<본인_인증키>              # open.law.go.kr 에서 발급
 ```
 
-Claude Code에 등록:
+## Claude 연동
+
+**A. 이 저장소에서 Claude Code (권장)** — 루트 [`.mcp.json`](../.mcp.json)에 `kfinlaw`가 이미 등록돼 있다(`${LAW_OC}` 환경변수 확장이라 키는 커밋되지 않음). `LAW_OC`를 환경에 둔 채 저장소에서 Claude Code를 열면 승인 프롬프트가 뜨고, 승인하면 9개 도구가 붙는다.
 
 ```bash
-claude mcp add kfinlaw --env LAW_OC=<본인_인증키> -- python /절대경로/mcp/server.py
+claude mcp list        # → kfinlaw: python3 mcp/server.py - ✔ Connected
 ```
 
-또는 설정 JSON에 직접:
+**B. 다른 경로·사용자 스코프** —
+
+```bash
+claude mcp add kfinlaw --env LAW_OC=<본인_인증키> -- python3 /절대경로/mcp/server.py
+```
+
+**C. Claude Desktop** — `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "kfinlaw": {
-      "command": "python",
+      "command": "python3",
       "args": ["/절대경로/mcp/server.py"],
       "env": { "LAW_OC": "<본인_인증키>" }
     }
   }
 }
 ```
+
+직접 실행(디버그): `LAW_OC=<키> python3 mcp/server.py` (stdio 대기).
 
 ## 도구 (9종)
 
