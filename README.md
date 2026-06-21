@@ -362,12 +362,12 @@ python -m benchmark.make_figures
 ```
 
 <details>
-<summary>서빙 플래그·격리·GPU 설정 / 디렉토리 구조</summary>
+<summary>재현 환경(서빙·격리·GPU)과 디렉토리 구조</summary>
 
 - 버전 고정: `serving/requirements.venv.full.lock`(vllm 0.23.0 · mistral_common 1.11.3 · sentence-transformers 5.5.1 · KURE-v1). 시스템 vllm 0.20.1/mistral_common 1.11.2의 reasoning_effort·멀티모달 버그 회피.
 - 격리: 셸 `PYTHONPATH`가 시스템 패키지를 오염시키므로 `env -u PYTHONPATH PYTHONNOUSERSITE=1` (serve_model.sh가 자동 적용 + 잔여 워커/shm 정리).
 - Mistral 플래그: `--quantization fp8 --reasoning-parser mistral --tool-call-parser mistral --enable-auto-tool-choice --limit-mm-per-prompt '{"image":0}'`, 요청 시 `reasoning_effort="none"`.
-- GPU: FP8 + ctx 4096 + `--gpu-memory-utilization`(학습 공존 0.26 / GPU 전용 `GPU_UTIL=0.7`). 디코딩 가속은 `EAGER=0`(CUDA graph), 기본 `EAGER=1`(enforce-eager).
+- GPU: ctx 4096 + `--gpu-memory-utilization`(학습 공존 0.26 / GPU 전용 `GPU_UTIL=0.7`). 디코딩 가속은 `EAGER=0`(CUDA graph), 기본값 `EAGER=1`(enforce-eager).
 
 ```
 KA-013-KFinLaw-MCP/
