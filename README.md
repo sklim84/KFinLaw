@@ -1,4 +1,4 @@
-# KA-013-KFinLaw-MCP
+# KA-013-KFinLaw
 
 **한국 금융 법령으로 한국어 RAG 검색 기법을 정량 비교·평가**하고, 그 결과로
 **국가법령정보센터 연계 MCP/CLI를 설계**하는 KFTC 연구 과제.
@@ -372,7 +372,7 @@ python -m benchmark.make_figures
 - GPU: ctx 4096 + `--gpu-memory-utilization`(학습 공존 0.26 / GPU 전용 `GPU_UTIL=0.7`). 디코딩 가속은 `EAGER=0`(CUDA graph), 기본값 `EAGER=1`(enforce-eager).
 
 ```
-KA-013-KFinLaw-MCP/
+KA-013-KFinLaw/
 ├── rag/                           # 목적1: RAG 벤치마크 (cd rag 후 실행)
 │   ├── config.yaml                # 단일 설정 출처(서빙·모델·검색·골드셋·답변 평가)
 │   ├── scripts/                   # collect_laws · download_byeolpyo · hwp2pdf · serve_model · run_*.sh
