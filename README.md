@@ -5,11 +5,11 @@
 
 `최종 업데이트 2026-06-21`
 
-[**빠른 시작**](#빠른-시작) · [핵심 결과](#핵심-결과) · [구성](#구성) · [벤치마크 상세](rag/README.md) · [도구 사용법](tool/README.md)
+[**Quick Start**](#quick-start) · [핵심 결과](#핵심-결과) · [구성](#구성) · [벤치마크 상세](rag/README.md) · [도구 사용법](tool/README.md)
 
 ---
 
-## 빠른 시작
+## Quick Start
 
 `law.go.kr` 라이브 API로 한국 금융 법령을 조회하는 **MCP 서버 + CLI**. 인증키(OC)는 [open.law.go.kr](https://open.law.go.kr)에서 발급한다.
 
