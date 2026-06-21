@@ -2,23 +2,23 @@
 # data/raw_xml: 법령 XML 2,582개(551MB) — collect_laws.py로 재수집
 # data/byeolpyo_pdf: 별표 PDF 1,083개(94MB) — download_byeolpyo.py로 재다운로드
 # data/byeolpyo_md: kordoc 변환 생성물
-data/raw_xml/
-data/byeolpyo_pdf/
-data/byeolpyo_md/
+rag/data/raw_xml/
+rag/data/byeolpyo_pdf/
+rag/data/byeolpyo_md/
 
 # ===== 로컬 설치 도구 (재설치 가능) =====
 # tools: LibreOffice + H2Orestart (~740MB)
-tools/
+rag/tools/
 out/
 
 # ===== 테스트/생성 산출물 =====
-tests/byeolpyo_parser/node_modules/
-tests/byeolpyo_parser/out/
-tests/byeolpyo_parser/batch_smoke/
-tests/byeolpyo_parser/shim/
-tests/byeolpyo_parser/pdf/
-tests/byeolpyo_parser/mineru_install.log
-benchmark/goldset/spotcheck/      # 생성기 비교 산출물(재생성 가능, spotcheck.py로)
+rag/tests/byeolpyo_parser/node_modules/
+rag/tests/byeolpyo_parser/out/
+rag/tests/byeolpyo_parser/batch_smoke/
+rag/tests/byeolpyo_parser/shim/
+rag/tests/byeolpyo_parser/pdf/
+rag/tests/byeolpyo_parser/mineru_install.log
+rag/benchmark/goldset/spotcheck/      # 생성기 비교 산출물(재생성 가능, spotcheck.py로)
 # benchmark/reports/ 는 추적함 — 실험 결과(검색 leaderboard·E6) 영구 기록
 
 # ===== 파이썬 =====
@@ -46,10 +46,10 @@ STATUS.md
 .claude/
 
 # 서빙/생성 로그·산출물 (재생성 가능)
-tests/vllm/
-tests/venv/
-tests/*.log
-tools/flash_attn_stub/
+rag/tests/vllm/
+rag/tests/venv/
+rag/tests/*.log
+rag/tools/flash_attn_stub/
 
 # LightRAG 색인 storage (재생성)
-benchmark/lightrag_storage/
+rag/benchmark/lightrag_storage/
