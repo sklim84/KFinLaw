@@ -5,7 +5,7 @@
 
 `최종 업데이트 2026-06-21`
 
-[**Quick Start**](#quick-start) · [도구](#도구) · [핵심 결과](#핵심-결과) · [구성](#구성) · [벤치마크 상세](rag/README.md) · [도구 사용법](tool/README.md)
+[**Quick Start**](#quick-start) · [Tools](#tools) · [RAG](#rag) · [Structure](#structure) · [벤치마크 상세](rag/README.md) · [도구 사용법](tool/README.md)
 
 ---
 
@@ -29,7 +29,7 @@ uvx --from ./tool kfinlaw search 전자금융 --json
 
 ---
 
-## 도구
+## Tools
 
 `law.go.kr` 라이브 API를 **MCP 도구 9종**으로 노출하고, 같은 코어를 **CLI**로도 쓴다(설치·연동은 [tool/README](tool/README.md)).
 
@@ -50,7 +50,7 @@ uvx --from ./tool kfinlaw search 전자금융 --json
 
 ---
 
-## 핵심 결과
+## RAG
 
 한국 금융 법령으로 RAG 검색·답변 기법을 실험한 결과다(전체 보고서는 **[rag/README](rag/README.md)**):
 
@@ -82,7 +82,7 @@ uvx --from ./tool kfinlaw search 전자금융 --json
 
 ---
 
-## 구성
+## Structure
 
 | 디렉토리 | 내용 | 문서 |
 |---|---|---|
@@ -101,7 +101,7 @@ KFinLaw/
 
 ---
 
-## 왜 이렇게
+## Background
 
 금융 법령 질의응답에 RAG를 도입하려면 청킹·임베딩·검색기·증강 등 설계 선택이 많지만, **한국어 법령 도메인에서 무엇이 실제로 효과적인지에 대한 정량 근거는 빈약하다.** 영어·일반 도메인의 통념(그래프 RAG·가설질의 증강이 검색을 개선한다, 큰 모델이 더 낫다)을 검증 없이 들여오면 비용만 늘고 성능은 오히려 떨어질 수 있다.
 
