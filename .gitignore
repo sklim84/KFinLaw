@@ -1,10 +1,7 @@
-# ===== 대용량 데이터 (스크립트로 재생성 가능) =====
-# data/raw_xml: 법령 XML 2,582개(551MB) — collect_laws.py로 재수집
-# data/byeolpyo_pdf: 별표 PDF 1,083개(94MB) — download_byeolpyo.py로 재다운로드
-# data/byeolpyo_md: kordoc 변환 생성물
-rag/data/raw_xml/
-rag/data/byeolpyo_pdf/
-rag/data/byeolpyo_md/
+# ===== 데이터 (영구 보존: 재수집 비용 큼) =====
+# data/raw_xml: 법령 XML 2,582개(557MB) — 추적함
+# data/byeolpyo_pdf: 별표 원본 PDF 1,083개(97MB) — 추적함(파서 비교 입력·md 무손실 원본)
+# data/byeolpyo_md: 별표 kordoc 변환 텍스트 — 추적함
 
 # ===== 로컬 설치 도구 (재설치 가능) =====
 # tools: LibreOffice + H2Orestart (~740MB)
