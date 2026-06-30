@@ -48,8 +48,8 @@ rag/tests/venv/
 rag/tests/*.log
 rag/tools/flash_attn_stub/
 
-# LightRAG 색인 storage (재생성)
-rag/benchmark/lightrag_storage/
+# LightRAG 색인 storage — 추적함(재인덱싱 비용 큼). 단 인덱싱 LLM 응답 캐시는 제외(질의에 불필요)
+rag/benchmark/lightrag_storage/kv_store_llm_response_cache.json
 
 # 빌드 산출물 (uv build)
 tool/dist/
